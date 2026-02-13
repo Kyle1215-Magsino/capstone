@@ -56,7 +56,7 @@
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border p-6">
           <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-clipboard-list text-gray-400 mr-2"></i>Attendance History (${att.length})</h3>
           <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <table id="studentAttDataTable" class="w-full text-sm">
               <thead><tr class="text-left text-gray-500 border-b">
                 <th class="px-4 py-2 font-medium">Event</th>
                 <th class="px-4 py-2 font-medium">Method</th>
@@ -64,11 +64,27 @@
                 <th class="px-4 py-2 font-medium text-center">Location</th>
                 <th class="px-4 py-2 font-medium">Check-In Time</th>
               </tr></thead>
-              <tbody>${attRows || '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">No attendance records yet.</td></tr>'}</tbody>
+              <tbody>${attRows}</tbody>
             </table>
           </div>
         </div>
       </div>`;
+
+      // Initialize DataTables on student attendance history
+      if (att.length > 0 && typeof simpleDatatables !== 'undefined') {
+        new simpleDatatables.DataTable('#studentAttDataTable', {
+          searchable: true,
+          sortable: true,
+          fixedHeight: false,
+          perPage: 10,
+          perPageSelect: [5, 10, 25],
+          labels: {
+            placeholder: 'Search attendance...',
+            noRows: '<div class="py-8 text-center text-gray-400">No attendance records yet.</div>',
+            info: 'Showing {start} to {end} of {rows} records',
+          }
+        });
+      }
     }
   </script>
 </body>

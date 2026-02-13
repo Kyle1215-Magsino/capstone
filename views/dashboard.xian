@@ -78,8 +78,19 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Attendance Trend Chart -->
       <div class="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border">
-        <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-chart-line text-forest-400 mr-2"></i>Attendance Trend</h3>
-        <canvas id="attendanceChart" height="120"></canvas>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-chart-line text-forest-400 mr-2"></i>Attendance Trend</h3>
+          <div class="flex bg-gray-100 rounded-lg p-1">
+            <button id="tabMonthly" onclick="switchChartTab('monthly')" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-white shadow text-forest-600 transition">Monthly</button>
+            <button id="tabDaily" onclick="switchChartTab('daily')" class="px-3 py-1.5 text-xs font-semibold rounded-md text-gray-500 hover:text-gray-700 transition">Last 7 Days</button>
+          </div>
+        </div>
+        <div id="monthlyChartWrap"><canvas id="attendanceChart" height="120"></canvas></div>
+        <div id="dailyChartWrap" class="hidden"><canvas id="dailyChart" height="120"></canvas></div>
+        <div class="flex items-center justify-center space-x-6 mt-4 text-xs text-gray-500">
+          <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-forest-400 inline-block mr-1.5"></span>On-Time</span>
+          <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-amber-400 inline-block mr-1.5"></span>Late</span>
+        </div>
       </div>
 
       <!-- Quick Actions -->
@@ -133,30 +144,154 @@
   </div>
 
   <script>
-    // Chart
+    // ===== Chart Data =====
     const labels = {{{chartLabels}}};
     const values = {{{chartValues}}};
+    const lateValues = {{{chartLateValues}}};
+    const dLabels = {{{dailyLabels}}};
+    const dValues = {{{dailyValues}}};
+
+    // Compute on-time = total - late
+    const onTimeValues = values.map((v, i) => Math.max(0, v - (lateValues[i] || 0)));
+
+    // ===== Monthly Stacked Bar Chart =====
+    let monthlyChart = null;
     if (document.getElementById('attendanceChart')) {
-      new Chart(document.getElementById('attendanceChart'), {
-        type: 'line',
+      const ctx = document.getElementById('attendanceChart').getContext('2d');
+      // Gradient for on-time bars
+      const grad1 = ctx.createLinearGradient(0, 0, 0, 300);
+      grad1.addColorStop(0, 'rgba(76, 118, 59, 0.9)');
+      grad1.addColorStop(1, 'rgba(76, 118, 59, 0.4)');
+      // Gradient for late bars
+      const grad2 = ctx.createLinearGradient(0, 0, 0, 300);
+      grad2.addColorStop(0, 'rgba(245, 158, 11, 0.9)');
+      grad2.addColorStop(1, 'rgba(245, 158, 11, 0.4)');
+
+      monthlyChart = new Chart(ctx, {
+        type: 'bar',
         data: {
           labels: labels.length ? labels : ['No data'],
+          datasets: [
+            {
+              label: 'On-Time',
+              data: onTimeValues.length ? onTimeValues : [0],
+              backgroundColor: grad1,
+              borderColor: '#4C763B',
+              borderWidth: 1,
+              borderRadius: { topLeft: 6, topRight: 6 },
+              borderSkipped: 'bottom'
+            },
+            {
+              label: 'Late',
+              data: lateValues.length ? lateValues : [0],
+              backgroundColor: grad2,
+              borderColor: '#f59e0b',
+              borderWidth: 1,
+              borderRadius: { topLeft: 6, topRight: 6 },
+              borderSkipped: 'bottom'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(17,24,39,0.9)',
+              titleFont: { weight: 'bold' },
+              padding: 12,
+              cornerRadius: 8,
+              callbacks: {
+                footer: function(items) {
+                  const total = items.reduce((s, i) => s + i.parsed.y, 0);
+                  return 'Total: ' + total + ' check-ins';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              stacked: true,
+              grid: { display: false },
+              ticks: { font: { size: 11 } }
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              ticks: { stepSize: 1, font: { size: 11 } },
+              grid: { color: 'rgba(0,0,0,0.04)' }
+            }
+          }
+        }
+      });
+    }
+
+    // ===== Daily Line Chart (Last 7 Days) =====
+    let dailyChart = null;
+    if (document.getElementById('dailyChart')) {
+      const ctx2 = document.getElementById('dailyChart').getContext('2d');
+      const grad3 = ctx2.createLinearGradient(0, 0, 0, 300);
+      grad3.addColorStop(0, 'rgba(76, 118, 59, 0.25)');
+      grad3.addColorStop(1, 'rgba(76, 118, 59, 0.02)');
+
+      dailyChart = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: dLabels.length ? dLabels : ['No data'],
           datasets: [{
             label: 'Check-Ins',
-            data: values.length ? values : [0],
+            data: dValues.length ? dValues : [0],
             borderColor: '#4C763B',
-            backgroundColor: 'rgba(76,118,59,0.1)',
+            backgroundColor: grad3,
             fill: true,
             tension: 0.4,
-            pointBackgroundColor: '#4C763B'
+            pointBackgroundColor: '#4C763B',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7
           }]
         },
         options: {
           responsive: true,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(17,24,39,0.9)',
+              padding: 12,
+              cornerRadius: 8
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1, font: { size: 11 } },
+              grid: { color: 'rgba(0,0,0,0.04)' }
+            }
+          }
         }
       });
+    }
+
+    // ===== Tab Switching =====
+    function switchChartTab(tab) {
+      const tabM = document.getElementById('tabMonthly');
+      const tabD = document.getElementById('tabDaily');
+      const wrapM = document.getElementById('monthlyChartWrap');
+      const wrapD = document.getElementById('dailyChartWrap');
+      if (tab === 'monthly') {
+        wrapM.classList.remove('hidden');
+        wrapD.classList.add('hidden');
+        tabM.className = 'px-3 py-1.5 text-xs font-semibold rounded-md bg-white shadow text-forest-600 transition';
+        tabD.className = 'px-3 py-1.5 text-xs font-semibold rounded-md text-gray-500 hover:text-gray-700 transition';
+      } else {
+        wrapM.classList.add('hidden');
+        wrapD.classList.remove('hidden');
+        tabD.className = 'px-3 py-1.5 text-xs font-semibold rounded-md bg-white shadow text-forest-600 transition';
+        tabM.className = 'px-3 py-1.5 text-xs font-semibold rounded-md text-gray-500 hover:text-gray-700 transition';
+      }
     }
 
     // Recent attendance table

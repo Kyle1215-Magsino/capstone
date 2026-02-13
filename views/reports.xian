@@ -58,9 +58,9 @@
       <!-- Event Participation Summary Table -->
       <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border p-6">
         <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-list-ol text-orange-500 mr-2"></i>Event Participation Summary</h3>
-        <div class="overflow-x-auto max-h-[400px] overflow-y-auto">
-          <table class="w-full text-sm">
-            <thead class="sticky top-0 bg-white">
+        <div class="overflow-x-auto">
+          <table id="eventSummaryDataTable" class="w-full text-sm">
+            <thead>
               <tr class="text-left text-gray-500 border-b">
                 <th class="px-4 py-2 font-medium">#</th>
                 <th class="px-4 py-2 font-medium">Event</th>
@@ -149,9 +149,27 @@
           <td class="px-4 py-2.5"><a href="/events/${e.id}" class="text-forest-400 hover:underline text-xs">View →</a></td>
         </tr>`;
       });
-    } else {
-      esTbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">No event data yet.</td></tr>';
     }
+
+    // Initialize DataTables on event summary
+    document.addEventListener('DOMContentLoaded', function() {
+      new simpleDatatables.DataTable('#eventSummaryDataTable', {
+        searchable: true,
+        sortable: true,
+        fixedHeight: false,
+        perPage: 10,
+        perPageSelect: [5, 10, 25],
+        labels: {
+          placeholder: 'Search events...',
+          noRows: '<div class="py-8 text-center text-gray-400">No event data yet.</div>',
+          info: 'Showing {start} to {end} of {rows} events',
+        },
+        columns: [
+          { select: 0, sortable: false },
+          { select: 5, sortable: false }
+        ]
+      });
+    });
   </script>
 </body>
 </html>

@@ -182,33 +182,13 @@ export const liveAttendance = async (req, res) => {
 export const attendanceLogsPage = async (req, res) => {
   if (!requireAuth(req, res)) return;
   try {
-    const eventId = req.query.eventId || "";
-    const dateFrom = req.query.dateFrom || "";
-    const dateTo = req.query.dateTo || "";
-    const page = parseInt(req.query.page) || 1;
-    const limit = 20;
-    const offset = (page - 1) * limit;
-
-    const where = {};
-    if (eventId) where.eventId = parseInt(eventId);
-    if (dateFrom || dateTo) {
-      where.checkInTime = {};
-      if (dateFrom) where.checkInTime[Op.gte] = new Date(dateFrom);
-      if (dateTo) where.checkInTime[Op.lte] = new Date(dateTo + "T23:59:59");
-    }
-
     const { count, rows } = await Attendance.findAndCountAll({
-      where,
       include: [
         { model: Student, as: "student" },
         { model: Event, as: "event" }
       ],
-      order: [["checkInTime", "DESC"]],
-      limit,
-      offset
+      order: [["checkInTime", "DESC"]]
     });
-
-    const totalPages = Math.ceil(count / limit);
 
     const events = await Event.findAll({ order: [["eventDate", "DESC"]] });
 
@@ -217,11 +197,6 @@ export const attendanceLogsPage = async (req, res) => {
       logs: JSON.stringify(rows),
       events: JSON.stringify(events),
       totalLogs: count,
-      currentPage: page,
-      totalPages,
-      eventId,
-      dateFrom,
-      dateTo,
       userName: req.session.userName,
       userRole: req.session.userRole
     });

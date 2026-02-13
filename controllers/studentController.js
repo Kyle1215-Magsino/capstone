@@ -11,37 +11,14 @@ const requireAuth = (req, res) => {
 export const studentsPage = async (req, res) => {
   if (!requireAuth(req, res)) return;
   try {
-    const search = req.query.search || "";
-    const page = parseInt(req.query.page) || 1;
-    const limit = 15;
-    const offset = (page - 1) * limit;
-
-    const where = search ? {
-      [Op.or]: [
-        { studentId: { [Op.like]: `%${search}%` } },
-        { firstName: { [Op.like]: `%${search}%` } },
-        { lastName: { [Op.like]: `%${search}%` } },
-        { course: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } }
-      ]
-    } : {};
-
     const { count, rows } = await Student.findAndCountAll({
-      where,
-      order: [["lastName", "ASC"]],
-      limit,
-      offset
+      order: [["lastName", "ASC"]]
     });
-
-    const totalPages = Math.ceil(count / limit);
 
     res.render("students", {
       title: "Students",
       students: JSON.stringify(rows),
       totalStudents: count,
-      currentPage: page,
-      totalPages,
-      search,
       userName: req.session.userName,
       userRole: req.session.userRole
     });

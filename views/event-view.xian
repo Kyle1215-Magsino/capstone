@@ -22,7 +22,7 @@
         </div>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table id="eventAttDataTable" class="w-full text-sm">
           <thead>
             <tr class="text-left text-gray-500 border-b">
               <th class="px-4 py-2 font-medium">#</th>
@@ -72,31 +72,52 @@
 
     // Populate attendance
     const attendances = event.attendances || [];
+    let attDT = null;
     renderAttendance(attendances);
 
     function renderAttendance(list) {
+      // Destroy existing DataTable if any
+      if (attDT) { attDT.destroy(); attDT = null; }
+
       const tbody = document.getElementById('attendanceBody');
       tbody.innerHTML = '';
-      if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">No attendance records yet.</td></tr>';
-        return;
+      if (list.length > 0) {
+        list.forEach((a, i) => {
+          const s = a.student || {};
+          const mClass = a.verificationMethod === 'rfid' ? 'bg-blue-100 text-blue-700' : a.verificationMethod === 'facial' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700';
+          const stClass = a.status === 'present' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+          const locIcon = a.locationVerified ? '<span class="text-green-500"><i class="fas fa-check-circle"></i> Verified</span>' : '<span class="text-gray-400"><i class="fas fa-minus-circle"></i> N/A</span>';
+          tbody.innerHTML += `<tr class="hover:bg-leaf-50 border-b border-gray-50">
+            <td class="px-4 py-2.5 text-gray-500">${i+1}</td>
+            <td class="px-4 py-2.5 font-medium">${s.studentId || ''}</td>
+            <td class="px-4 py-2.5">${s.firstName || ''} ${s.lastName || ''}</td>
+            <td class="px-4 py-2.5">${s.course || ''}</td>
+            <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${mClass}">${a.verificationMethod}</span></td>
+            <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${stClass}">${a.status}</span></td>
+            <td class="px-4 py-2.5 text-xs">${locIcon}</td>
+            <td class="px-4 py-2.5 text-xs text-gray-500">${new Date(a.checkInTime).toLocaleString()}</td>
+          </tr>`;
+        });
       }
-      list.forEach((a, i) => {
-        const s = a.student || {};
-        const mClass = a.verificationMethod === 'rfid' ? 'bg-blue-100 text-blue-700' : a.verificationMethod === 'facial' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700';
-        const stClass = a.status === 'present' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
-        const locIcon = a.locationVerified ? '<span class="text-green-500"><i class="fas fa-check-circle"></i> Verified</span>' : '<span class="text-gray-400"><i class="fas fa-minus-circle"></i> N/A</span>';
-            tbody.innerHTML += `<tr class="hover:bg-leaf-50 border-b border-gray-50">
-          <td class="px-4 py-2.5 text-gray-500">${i+1}</td>
-          <td class="px-4 py-2.5 font-medium">${s.studentId || ''}</td>
-          <td class="px-4 py-2.5">${s.firstName || ''} ${s.lastName || ''}</td>
-          <td class="px-4 py-2.5">${s.course || ''}</td>
-          <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${mClass}">${a.verificationMethod}</span></td>
-          <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${stClass}">${a.status}</span></td>
-          <td class="px-4 py-2.5 text-xs">${locIcon}</td>
-          <td class="px-4 py-2.5 text-xs text-gray-500">${new Date(a.checkInTime).toLocaleString()}</td>
-        </tr>`;
-      });
+
+      // Init DataTable
+      if (typeof simpleDatatables !== 'undefined') {
+        attDT = new simpleDatatables.DataTable('#eventAttDataTable', {
+          searchable: true,
+          sortable: true,
+          fixedHeight: false,
+          perPage: 15,
+          perPageSelect: [10, 15, 25, 50],
+          labels: {
+            placeholder: 'Search attendees...',
+            noRows: '<div class="py-8 text-center text-gray-400">No attendance records yet.</div>',
+            info: 'Showing {start} to {end} of {rows} attendees',
+          },
+          columns: [
+            { select: 0, sortable: false }
+          ]
+        });
+      }
     }
 
     function refreshAttendance() {

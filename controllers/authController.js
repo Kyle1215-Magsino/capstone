@@ -25,6 +25,7 @@
     */
     
 import bcrypt from "bcrypt";
+import { Op } from "sequelize";
 import { User, Student, Event, Attendance, sequelize } from "../models/associations.js";
 
 try {
@@ -64,18 +65,19 @@ export const dashboardPage = async (req, res) => {
       limit: 5
     });
 
-    // Monthly attendance data for chart (last 6 months)
+    // Monthly attendance data for chart (last 6 months) — fill gaps
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
     const monthlyData = await Attendance.findAll({
       attributes: [
         [sequelize.fn("MONTH", sequelize.col("checkInTime")), "month"],
         [sequelize.fn("YEAR", sequelize.col("checkInTime")), "year"],
         [sequelize.fn("COUNT", sequelize.col("Attendance.id")), "count"]
       ],
-      where: {
-        checkInTime: { [sequelize.Sequelize.Op.gte]: sixMonthsAgo }
-      },
+      where: { checkInTime: { [Op.gte]: sixMonthsAgo } },
       group: [
         sequelize.fn("YEAR", sequelize.col("checkInTime")),
         sequelize.fn("MONTH", sequelize.col("checkInTime"))
@@ -87,9 +89,66 @@ export const dashboardPage = async (req, res) => {
       raw: true
     });
 
+    // Also get on-time vs late per month
+    const monthlyLate = await Attendance.findAll({
+      attributes: [
+        [sequelize.fn("MONTH", sequelize.col("checkInTime")), "month"],
+        [sequelize.fn("YEAR", sequelize.col("checkInTime")), "year"],
+        [sequelize.fn("COUNT", sequelize.col("Attendance.id")), "count"]
+      ],
+      where: {
+        checkInTime: { [Op.gte]: sixMonthsAgo },
+        status: "late"
+      },
+      group: [
+        sequelize.fn("YEAR", sequelize.col("checkInTime")),
+        sequelize.fn("MONTH", sequelize.col("checkInTime"))
+      ],
+      raw: true
+    });
+
+    // Build full 6-month series with no gaps
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const chartLabels = monthlyData.map(d => monthNames[(d.month || 1) - 1] + " " + d.year);
-    const chartValues = monthlyData.map(d => d.count);
+    const chartLabels = [];
+    const chartValues = [];
+    const chartLateValues = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const m = d.getMonth() + 1;
+      const y = d.getFullYear();
+      chartLabels.push(monthNames[m - 1] + " " + y);
+      const found = monthlyData.find(r => Number(r.month) === m && Number(r.year) === y);
+      chartValues.push(found ? Number(found.count) : 0);
+      const foundLate = monthlyLate.find(r => Number(r.month) === m && Number(r.year) === y);
+      chartLateValues.push(foundLate ? Number(foundLate.count) : 0);
+    }
+
+    // Daily trend for last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const dailyData = await Attendance.findAll({
+      attributes: [
+        [sequelize.fn("DATE", sequelize.col("checkInTime")), "date"],
+        [sequelize.fn("COUNT", sequelize.col("Attendance.id")), "count"]
+      ],
+      where: { checkInTime: { [Op.gte]: sevenDaysAgo } },
+      group: [sequelize.fn("DATE", sequelize.col("checkInTime"))],
+      order: [[sequelize.fn("DATE", sequelize.col("checkInTime")), "ASC"]],
+      raw: true
+    });
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dailyLabels = [];
+    const dailyValues = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      dailyLabels.push(dayNames[d.getDay()] + " " + d.getDate());
+      const found = dailyData.find(r => String(r.date) === ds);
+      dailyValues.push(found ? Number(found.count) : 0);
+    }
 
     res.render("dashboard", {
       title: "Dashboard",
@@ -103,7 +162,10 @@ export const dashboardPage = async (req, res) => {
       recentAttendance: JSON.stringify(recentAttendance),
       upcomingEventsList: JSON.stringify(upcomingEventsList),
       chartLabels: JSON.stringify(chartLabels),
-      chartValues: JSON.stringify(chartValues)
+      chartValues: JSON.stringify(chartValues),
+      chartLateValues: JSON.stringify(chartLateValues),
+      dailyLabels: JSON.stringify(dailyLabels),
+      dailyValues: JSON.stringify(dailyValues)
     });
   } catch (err) {
     console.error("Dashboard error:", err);
