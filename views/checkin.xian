@@ -1,4 +1,11 @@
 {{> head}}
+<style>
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fadeInUp { animation: fadeInUp 0.4s ease-out; }
+</style>
 <body class="bg-leaf-50 min-h-screen">
   {{> sidebar}}
 
@@ -121,6 +128,9 @@
                 <button onclick="toggleCamera()" id="camToggleBtn" class="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm text-gray-600 transition-all" title="Switch camera">
                   <i class="fas fa-sync-alt"></i>
                 </button>
+                <button onclick="openFullscreen()" class="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm text-gray-600 transition-all" title="Fullscreen mode">
+                  <i class="fas fa-expand"></i>
+                </button>
               </div>
 
               <!-- Model loading progress -->
@@ -242,6 +252,126 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== FULLSCREEN FACE ATTENDANCE MODAL ========== -->
+  <div id="fsModal" class="hidden fixed inset-0 z-[9999] bg-gray-950 flex flex-col">
+    <!-- Top bar -->
+    <div class="flex items-center justify-between px-6 py-4 bg-gray-900/80 backdrop-blur-sm border-b border-gray-800">
+      <div class="flex items-center space-x-4">
+        <div class="w-9 h-9 bg-forest-500 rounded-lg flex items-center justify-center">
+          <i class="fas fa-camera text-white"></i>
+        </div>
+        <div>
+          <h2 class="text-white font-bold text-sm">Face Attendance — Fullscreen</h2>
+          <p class="text-gray-400 text-xs" id="fsEventName">No event selected</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <div id="fsStatusPill" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-gray-800 border border-gray-700">
+          <span id="fsDot" class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+          <span id="fsStatusText" class="text-xs font-medium text-gray-300">Initializing...</span>
+        </div>
+        <div class="text-right">
+          <p class="text-gray-400 text-[11px] tabular-nums" id="fsClock"></p>
+        </div>
+        <button onclick="closeFullscreen()" class="w-9 h-9 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition" title="Exit fullscreen">
+          <i class="fas fa-compress"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="flex-1 flex overflow-hidden">
+      <!-- Left: Camera -->
+      <div class="flex-1 flex flex-col p-6">
+        <div class="flex-1 relative rounded-2xl overflow-hidden bg-black shadow-2xl">
+          <video id="fsVideo" autoplay muted playsinline class="w-full h-full object-cover"></video>
+          <canvas id="fsOverlay" class="absolute top-0 left-0 w-full h-full"></canvas>
+
+          <!-- Face guide oval -->
+          <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div id="fsFaceGuide" class="w-56 h-72 border-2 border-dashed border-white/20 rounded-[50%] transition-all duration-500"></div>
+          </div>
+
+          <!-- Camera status -->
+          <div class="absolute top-4 left-4">
+            <div class="bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full inline-flex items-center">
+              <span id="fsCamDot" class="w-2 h-2 rounded-full bg-yellow-400 mr-2 animate-pulse"></span>
+              <span id="fsCamStatus">Starting camera...</span>
+            </div>
+          </div>
+
+          <!-- Enrolled count badge -->
+          <div class="absolute top-4 right-4">
+            <div class="bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
+              <i class="fas fa-users mr-1.5"></i><span id="fsEnrolledCount">0</span> enrolled
+            </div>
+          </div>
+
+          <!-- Match result overlay -->
+          <div id="fsMatchOverlay" class="hidden absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
+            <div class="flex items-center space-x-4">
+              <div id="fsMatchIcon" class="w-16 h-16 rounded-full flex items-center justify-center text-white shadow-2xl">
+                <i class="fas fa-check text-2xl"></i>
+              </div>
+              <div class="flex-1">
+                <p id="fsMatchName" class="text-white font-bold text-xl"></p>
+                <p id="fsMatchInfo" class="text-gray-300 text-sm mt-0.5"></p>
+                <p id="fsMatchStatus" class="text-sm mt-1"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex items-center justify-center space-x-4 mt-5">
+          <button onclick="fsToggleCamera()" class="px-5 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-sm font-medium transition flex items-center">
+            <i class="fas fa-sync-alt mr-2"></i>Flip Camera
+          </button>
+          <button onclick="fsCaptureAndMatch()" id="fsCaptureBtn" class="px-10 py-4 bg-forest-600 hover:bg-forest-700 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-forest-600/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center" disabled>
+            <i class="fas fa-camera mr-2 text-lg"></i>Capture & Match
+          </button>
+          <button onclick="closeFullscreen()" class="px-5 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-sm font-medium transition flex items-center">
+            <i class="fas fa-compress mr-2"></i>Exit
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Recent check-ins sidebar -->
+      <div class="w-80 bg-gray-900 border-l border-gray-800 flex flex-col">
+        <div class="px-5 py-4 border-b border-gray-800">
+          <h3 class="text-white font-semibold text-sm flex items-center">
+            <span class="relative flex h-2.5 w-2.5 mr-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+            </span>
+            Recent Check-Ins
+          </h3>
+          <!-- Stats row -->
+          <div class="flex items-center space-x-3 mt-3">
+            <div class="flex-1 text-center py-2 bg-green-500/10 rounded-lg border border-green-500/20">
+              <p class="text-lg font-bold text-green-400 tabular-nums" id="fsStatPresent">0</p>
+              <p class="text-[10px] text-green-400/70">Present</p>
+            </div>
+            <div class="flex-1 text-center py-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
+              <p class="text-lg font-bold text-amber-400 tabular-nums" id="fsStatLate">0</p>
+              <p class="text-[10px] text-amber-400/70">Late</p>
+            </div>
+            <div class="flex-1 text-center py-2 bg-white/5 rounded-lg border border-white/10">
+              <p class="text-lg font-bold text-white tabular-nums" id="fsStatTotal">0</p>
+              <p class="text-[10px] text-gray-400">Total</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto" id="fsFeed">
+          <div class="flex flex-col items-center justify-center h-full text-gray-600">
+            <i class="fas fa-user-clock text-3xl mb-2"></i>
+            <p class="text-xs">Waiting for check-ins...</p>
           </div>
         </div>
       </div>
@@ -805,6 +935,356 @@
     document.getElementById('studentInput').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') processCheckin();
     });
+
+    // ====================== FULLSCREEN FACE MODE ======================
+    var fsVideoStream = null;
+    var fsFacingMode = 'user';
+    var fsOpen = false;
+    var fsFeedInterval = null;
+    var fsClockInterval = null;
+    var fsLastCount = 0;
+
+    function openFullscreen() {
+      var eid = sel.value;
+      if (!eid) {
+        showToast('error', 'No Event Selected', 'Please select an event before using fullscreen mode.');
+        return;
+      }
+      if (!modelsLoaded) {
+        showToast('warn', 'Models Loading', 'Face models are still loading. Please wait...');
+        return;
+      }
+
+      // Stop the inline camera
+      stopCamera();
+
+      fsOpen = true;
+      var modal = document.getElementById('fsModal');
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+
+      // Set event name
+      var ev = events.find(function(e){ return e.id == eid; });
+      document.getElementById('fsEventName').textContent = ev ? ev.eventName + ' — ' + ev.venue : 'Event #' + eid;
+
+      // Enrolled count
+      document.getElementById('fsEnrolledCount').textContent = enrolledFaces.length;
+
+      // Start fullscreen camera
+      fsStartCamera();
+
+      // Clock
+      fsUpdateClock();
+      fsClockInterval = setInterval(fsUpdateClock, 1000);
+
+      // Live feed in sidebar
+      fsRefreshFeed();
+      fsFeedInterval = setInterval(fsRefreshFeed, 5000);
+    }
+
+    function closeFullscreen() {
+      fsOpen = false;
+      var modal = document.getElementById('fsModal');
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+
+      // Stop fullscreen camera
+      fsStopCamera();
+
+      if (fsFeedInterval) { clearInterval(fsFeedInterval); fsFeedInterval = null; }
+      if (fsClockInterval) { clearInterval(fsClockInterval); fsClockInterval = null; }
+
+      // Restart inline camera if still on face tab
+      if (currentMethod === 'facial') {
+        setTimeout(function(){ startCamera(); }, 300);
+      }
+
+      // Refresh main feed
+      refreshFeed();
+    }
+
+    // Escape key to close
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && fsOpen) closeFullscreen();
+    });
+
+    function fsUpdateClock() {
+      document.getElementById('fsClock').textContent = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    async function fsStartCamera() {
+      try {
+        fsStopCamera();
+        await new Promise(function(r){ setTimeout(r, 200); });
+        fsVideoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: fsFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        var vid = document.getElementById('fsVideo');
+        vid.srcObject = fsVideoStream;
+        await vid.play().catch(function(){});
+        await waitForVideo(vid);
+        fsCamStatus('green', 'Camera ready — position face');
+        document.getElementById('fsCaptureBtn').disabled = false;
+        document.getElementById('fsFaceGuide').classList.remove('border-green-400', 'border-red-400');
+        document.getElementById('fsFaceGuide').classList.add('border-white/20');
+      } catch (err) {
+        console.error('FS camera error:', err);
+        fsCamStatus('red', 'Camera access denied');
+      }
+    }
+
+    function fsStopCamera() {
+      if (fsVideoStream) {
+        fsVideoStream.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+        fsVideoStream = null;
+      }
+      var vid = document.getElementById('fsVideo');
+      if (vid) { vid.srcObject = null; vid.load(); }
+    }
+
+    function fsToggleCamera() {
+      fsFacingMode = fsFacingMode === 'user' ? 'environment' : 'user';
+      fsStartCamera();
+    }
+
+    function fsCamStatus(color, text) {
+      var colors = { green: 'bg-green-400', yellow: 'bg-yellow-400', red: 'bg-red-400' };
+      document.getElementById('fsCamDot').className = 'w-2 h-2 rounded-full mr-2 animate-pulse ' + (colors[color] || 'bg-gray-400');
+      document.getElementById('fsCamStatus').textContent = text;
+      // Also update top status pill
+      var dotColors = { green: 'bg-green-400', yellow: 'bg-yellow-400', red: 'bg-red-400' };
+      document.getElementById('fsDot').className = 'w-2 h-2 rounded-full animate-pulse ' + (dotColors[color] || 'bg-gray-400');
+      document.getElementById('fsStatusText').textContent = text;
+    }
+
+    async function fsCaptureAndMatch() {
+      if (!modelsLoaded || !fsOpen) return;
+      var video = document.getElementById('fsVideo');
+      var overlay = document.getElementById('fsOverlay');
+      var guide = document.getElementById('fsFaceGuide');
+      var matchOv = document.getElementById('fsMatchOverlay');
+      var btn = document.getElementById('fsCaptureBtn');
+
+      if (!fsVideoStream || !video.srcObject || video.readyState < 2) {
+        showToast('error', 'Camera Not Ready', 'Please wait for the camera.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2 text-lg"></i>Scanning...';
+      fsCamStatus('yellow', 'Scanning face...');
+      matchOv.classList.add('hidden');
+      guide.classList.remove('border-white/20', 'border-green-400', 'border-red-400');
+      guide.classList.add('border-yellow-400');
+      guide.style.borderStyle = 'solid';
+
+      try {
+        var detection = await faceapi
+          .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        var ctx = overlay.getContext('2d');
+        overlay.width = video.videoWidth;
+        overlay.height = video.videoHeight;
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+        if (!detection) {
+          fsCamStatus('red', 'No face detected');
+          guide.classList.remove('border-yellow-400');
+          guide.classList.add('border-red-400');
+          guide.style.borderStyle = 'dashed';
+          showToast('error', 'No Face Detected', 'Position the face inside the oval guide.');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-camera mr-2 text-lg"></i>Capture & Match';
+          setTimeout(function(){ guide.classList.remove('border-red-400'); guide.classList.add('border-white/20'); }, 2000);
+          return;
+        }
+
+        // Draw face box
+        var box = detection.detection.box;
+        ctx.strokeStyle = '#4C763B';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+        // Draw landmarks
+        ctx.fillStyle = '#B0CE88';
+        detection.landmarks.positions.forEach(function(pt) {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 2, 0, 2 * Math.PI);
+          ctx.fill();
+        });
+
+        if (enrolledFaces.length === 0) {
+          fsCamStatus('yellow', 'No faces enrolled');
+          guide.classList.remove('border-yellow-400');
+          guide.classList.add('border-white/20');
+          guide.style.borderStyle = 'dashed';
+          showToast('warn', 'No Enrolled Faces', 'Enroll faces first on the Face Enrollment page.');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-camera mr-2 text-lg"></i>Capture & Match';
+          return;
+        }
+
+        // Match
+        var queryDescriptor = detection.descriptor;
+        var bestMatch = null;
+        var bestDistance = Infinity;
+        enrolledFaces.forEach(function(face) {
+          var distance = faceapi.euclideanDistance(queryDescriptor, face.descriptor);
+          if (distance < bestDistance) { bestDistance = distance; bestMatch = face; }
+        });
+
+        var threshold = 0.55;
+        if (bestMatch && bestDistance < threshold) {
+          var confidence = ((1 - bestDistance) * 100).toFixed(1);
+
+          // Green guide
+          guide.classList.remove('border-yellow-400');
+          guide.classList.add('border-green-400');
+
+          // Green box
+          ctx.strokeStyle = '#22c55e';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+          ctx.fillStyle = 'rgba(34, 197, 94, 0.15)';
+          ctx.fillRect(box.x, box.y, box.width, box.height);
+
+          fsCamStatus('green', 'Matched — ' + bestMatch.name);
+
+          // Show match overlay
+          document.getElementById('fsMatchIcon').className = 'w-16 h-16 rounded-full flex items-center justify-center text-white shadow-2xl bg-green-500';
+          document.getElementById('fsMatchIcon').innerHTML = '<i class="fas fa-check text-2xl"></i>';
+          document.getElementById('fsMatchName').textContent = bestMatch.name;
+          document.getElementById('fsMatchInfo').textContent = bestMatch.studentId + ' \u2022 ' + bestMatch.course + ' \u2022 Year ' + bestMatch.yearLevel;
+          document.getElementById('fsMatchStatus').innerHTML = '<span class="text-green-400 font-semibold"><i class="fas fa-spinner fa-spin mr-1"></i>Checking in... (' + confidence + '% confidence)</span>';
+          matchOv.classList.remove('hidden');
+
+          // Auto check-in
+          var eid = sel.value;
+          if (eid) {
+            var useLocation = document.getElementById('locationToggle').checked;
+            try {
+              var resp = await fetch('/api/checkin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  studentIdentifier: bestMatch.studentId,
+                  eventId: eid,
+                  verificationMethod: 'facial',
+                  locationLat: useLocation ? currentLat : null,
+                  locationLng: useLocation ? currentLng : null
+                })
+              });
+              var data = await resp.json();
+              if (data.success) {
+                var a = data.attendance || {};
+                document.getElementById('fsMatchStatus').innerHTML = '<span class="text-green-400 font-semibold"><i class="fas fa-check-circle mr-1"></i>Checked in — ' + (a.status || 'present') + '</span>';
+                showToast('success', 'Checked In!', data.message);
+                showLastCheckin('success', data);
+                fsRefreshFeed();
+                refreshFeed();
+              } else {
+                document.getElementById('fsMatchStatus').innerHTML = '<span class="text-amber-400 font-semibold"><i class="fas fa-exclamation-circle mr-1"></i>' + data.message + '</span>';
+                showToast('error', 'Check-In Failed', data.message);
+              }
+            } catch (err) {
+              document.getElementById('fsMatchStatus').innerHTML = '<span class="text-red-400">Network error</span>';
+            }
+          }
+
+          // Reset after delay
+          setTimeout(function() {
+            matchOv.classList.add('hidden');
+            guide.classList.remove('border-green-400');
+            guide.classList.add('border-white/20');
+            guide.style.borderStyle = 'dashed';
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+            fsCamStatus('green', 'Camera ready — position face');
+          }, 3500);
+
+        } else {
+          // No match
+          guide.classList.remove('border-yellow-400');
+          guide.classList.add('border-red-400');
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+          document.getElementById('fsMatchIcon').className = 'w-16 h-16 rounded-full flex items-center justify-center text-white shadow-2xl bg-red-500';
+          document.getElementById('fsMatchIcon').innerHTML = '<i class="fas fa-times text-2xl"></i>';
+          document.getElementById('fsMatchName').textContent = 'Not Recognized';
+          document.getElementById('fsMatchInfo').textContent = 'Distance: ' + bestDistance.toFixed(3) + ' (threshold: ' + threshold + ')';
+          document.getElementById('fsMatchStatus').innerHTML = '<span class="text-red-400">Try again or use manual check-in</span>';
+          matchOv.classList.remove('hidden');
+
+          fsCamStatus('red', 'No match found');
+          showToast('error', 'No Match', 'Face not recognized.');
+
+          setTimeout(function() {
+            matchOv.classList.add('hidden');
+            guide.classList.remove('border-red-400');
+            guide.classList.add('border-white/20');
+            guide.style.borderStyle = 'dashed';
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+            fsCamStatus('green', 'Camera ready — position face');
+          }, 3000);
+        }
+      } catch (err) {
+        console.error('FS capture error:', err);
+        fsCamStatus('red', 'Detection failed');
+        guide.classList.remove('border-yellow-400');
+        guide.classList.add('border-white/20');
+        guide.style.borderStyle = 'dashed';
+        showToast('error', 'Error', 'Face detection failed. Try again.');
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-camera mr-2 text-lg"></i>Capture & Match';
+    }
+
+    async function fsRefreshFeed() {
+      var eid = sel.value;
+      if (!eid || !fsOpen) return;
+      try {
+        var resp = await fetch('/api/attendance/live/' + eid);
+        var data = await resp.json();
+        if (data.success) {
+          document.getElementById('fsStatPresent').textContent = data.present;
+          document.getElementById('fsStatLate').textContent = data.late;
+          document.getElementById('fsStatTotal').textContent = data.total;
+
+          var feed = document.getElementById('fsFeed');
+          if (data.attendances.length === 0) {
+            feed.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-gray-600"><i class="fas fa-user-clock text-3xl mb-2"></i><p class="text-xs">Waiting for check-ins...</p></div>';
+            return;
+          }
+
+          var isNewEntry = data.attendances.length > fsLastCount;
+          fsLastCount = data.attendances.length;
+
+          feed.innerHTML = data.attendances.slice(0, 20).map(function(a, i) {
+            var s = a.student || {};
+            var initials = (s.firstName ? s.firstName[0] : '') + (s.lastName ? s.lastName[0] : '');
+            var stColor = a.status === 'present' ? 'green' : 'amber';
+            var mIcon = a.verificationMethod === 'facial' ? 'fa-camera' : a.verificationMethod === 'rfid' ? 'fa-wifi' : 'fa-keyboard';
+            var animClass = (isNewEntry && i === 0) ? 'animate-fadeInUp' : '';
+
+            return '<div class="flex items-center space-x-3 px-5 py-3 border-b border-gray-800/50 hover:bg-gray-800/30 transition ' + animClass + '">' +
+              '<div class="w-9 h-9 rounded-full bg-forest-500/20 flex items-center justify-center text-forest-400 text-xs font-bold flex-shrink-0">' + initials + '</div>' +
+              '<div class="flex-1 min-w-0">' +
+                '<p class="text-sm font-medium text-white truncate">' + (s.firstName || '') + ' ' + (s.lastName || '') + '</p>' +
+                '<p class="text-[11px] text-gray-500">' + (s.studentId || '') + ' \u2022 ' + (s.course || '') + '</p>' +
+              '</div>' +
+              '<div class="flex flex-col items-end flex-shrink-0">' +
+                '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-' + stColor + '-500/15 text-' + stColor + '-400">' + a.status + '</span>' +
+                '<span class="text-[10px] text-gray-600 mt-0.5 tabular-nums">' + new Date(a.checkInTime).toLocaleTimeString() + '</span>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+        }
+      } catch (err) {}
+    }
 
     // ====================== LIVE FEED ======================
     async function refreshFeed() {
