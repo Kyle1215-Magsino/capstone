@@ -1,0 +1,254 @@
+{{> head}}
+<body class="bg-leaf-50 min-h-screen">
+  {{> sidebar}}
+
+  <div class="ml-64 p-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">Events</h1>
+        <p class="text-sm text-gray-500">Manage USG events ({{ totalEvents }} total)</p>
+      </div>
+      <button onclick="openAddEventModal()" class="btn-forest px-4 py-2 text-sm">
+        <i class="fas fa-calendar-plus mr-2"></i>Create Event
+      </button>
+    </div>
+
+    {{#if success_msg.length}}
+    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">
+      <i class="fas fa-check-circle mr-2"></i>{{success_msg}}
+    </div>
+    {{/if}}
+    {{#if error_msg.length}}
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+      <i class="fas fa-exclamation-circle mr-2"></i>{{error_msg}}
+    </div>
+    {{/if}}
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl shadow-sm border p-4 mb-6">
+      <form method="GET" action="/events" class="flex items-center space-x-3">
+        <div class="relative flex-1">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fas fa-search"></i></span>
+          <input type="text" name="search" value="{{ search }}" placeholder="Search events..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-400 outline-none text-sm" />
+        </div>
+        <select name="status" class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forest-400 outline-none">
+          <option value="">All Status</option>
+          <option value="upcoming">Upcoming</option>
+          <option value="ongoing">Ongoing</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <button type="submit" class="btn-forest px-4 py-2 text-sm">Filter</button>
+        <a href="/events" class="text-gray-500 hover:text-gray-700 text-sm">Clear</a>
+      </form>
+    </div>
+
+    <!-- Events Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="eventsGrid"></div>
+
+    <div class="flex items-center justify-between mt-6" id="pagination"></div>
+  </div>
+
+  <script>
+    const events = {{{events}}};
+    const grid = document.getElementById('eventsGrid');
+    const statusColors = {
+      upcoming: 'bg-forest-100 text-forest-600',
+      ongoing: 'bg-green-100 text-green-700',
+      completed: 'bg-gray-100 text-gray-700',
+      cancelled: 'bg-red-100 text-red-700'
+    };
+    const statusIcons = {
+      upcoming: 'fa-clock',
+      ongoing: 'fa-broadcast-tower',
+      completed: 'fa-check-circle',
+      cancelled: 'fa-ban'
+    };
+
+    if (events && events.length) {
+      events.forEach(e => {
+        const sc = statusColors[e.status] || 'bg-gray-100 text-gray-700';
+        const si = statusIcons[e.status] || 'fa-calendar';
+        const org = e.organizer ? e.organizer.name : 'Unknown';
+        grid.innerHTML += `<div class="bg-white rounded-xl shadow-sm border hover:shadow-md transition overflow-hidden">
+          <div class="p-5">
+            <div class="flex items-start justify-between mb-3">
+              <span class="px-2.5 py-1 rounded-full text-xs font-medium ${sc}"><i class="fas ${si} mr-1"></i>${e.status}</span>
+              <div class="flex space-x-1">
+                <a href="/events/${e.id}" class="text-forest-400 hover:text-forest-500 p-1" title="View"><i class="fas fa-eye text-sm"></i></a>
+                <a href="/events/${e.id}/edit" class="text-yellow-500 hover:text-yellow-700 p-1" title="Edit"><i class="fas fa-edit text-sm"></i></a>
+              </div>
+            </div>
+            <h3 class="font-bold text-gray-800 text-lg mb-1">${e.eventName}</h3>
+            <p class="text-sm text-gray-500 mb-3 line-clamp-2">${e.description || 'No description'}</p>
+            <div class="space-y-2 text-sm text-gray-600">
+              <div class="flex items-center"><i class="fas fa-calendar-day w-5 text-gray-400"></i>${e.eventDate}</div>
+              <div class="flex items-center"><i class="fas fa-clock w-5 text-gray-400"></i>${e.startTime} - ${e.endTime}</div>
+              <div class="flex items-center"><i class="fas fa-map-marker-alt w-5 text-gray-400"></i>${e.venue}</div>
+              <div class="flex items-center"><i class="fas fa-user w-5 text-gray-400"></i>${org}</div>
+            </div>
+          </div>
+          <div class="border-t px-5 py-3 bg-gray-50 flex justify-between items-center">
+            <a href="/events/${e.id}" class="text-forest-400 text-sm font-medium hover:underline">View Details →</a>
+            <form method="POST" action="/events/${e.id}/delete" onsubmit="return confirm('Delete this event and all its attendance records?')">
+              <button type="submit" class="text-red-400 hover:text-red-600 text-xs"><i class="fas fa-trash mr-1"></i>Delete</button>
+            </form>
+          </div>
+        </div>`;
+      });
+    } else {
+      grid.innerHTML = '<div class="col-span-3 text-center py-12 text-gray-400"><i class="fas fa-calendar-alt text-5xl mb-4 block"></i><p>No events found.</p><button onclick="openAddEventModal()" class="text-forest-400 text-sm mt-2 inline-block hover:underline">Create your first event →</button></div>';
+    }
+
+    const currentPage = {{ currentPage }};
+    const totalPages = {{ totalPages }};
+    const pgDiv = document.getElementById('pagination');
+    if (totalPages > 1) {
+      let html = '<div class="flex space-x-2">';
+      for (let i = 1; i <= totalPages; i++) {
+        const active = i === currentPage ? 'bg-forest-400 text-white' : 'bg-white text-gray-700 border hover:bg-gray-50';
+        html += `<a href="/events?page=${i}&search={{ search }}&status={{ statusFilter }}" class="px-3 py-1.5 rounded-lg text-sm ${active}">${i}</a>`;
+      }
+      html += '</div>';
+      pgDiv.innerHTML = `<span class="text-sm text-gray-500">Page ${currentPage} of ${totalPages}</span>${html}`;
+    }
+  </script>
+
+  <!-- Add Event Modal -->
+  <div id="addEventModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeAddEventModal()"></div>
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fadeInUp z-10">
+        <!-- Modal Header -->
+        <div class="sticky top-0 bg-white border-b px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-calendar-plus text-forest-400 mr-2"></i>Create New Event</h2>
+            <p class="text-sm text-gray-500">Set up a new USG event</p>
+          </div>
+          <button onclick="closeAddEventModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="px-6 py-5">
+          <div id="addEventAlert" class="hidden px-4 py-3 rounded-lg mb-4 text-sm"></div>
+          <form id="addEventForm" class="space-y-5">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Event Name *</label>
+              <input type="text" name="eventName" placeholder="e.g. General Assembly 2026" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-400 focus:border-forest-400 outline-none text-sm" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea name="description" rows="3" placeholder="Brief description of the event..." class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-400 focus:border-forest-400 outline-none text-sm"></textarea>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Event Date *</label>
+                <input type="date" name="eventDate" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-400 outline-none text-sm" required />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
+                <input type="time" name="startTime" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-400 outline-none text-sm" required />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">End Time *</label>
+                <input type="time" name="endTime" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-400 outline-none text-sm" required />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Venue *</label>
+              <input type="text" name="venue" placeholder="e.g. MinSU Gymnasium" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-400 outline-none text-sm" required />
+            </div>
+            <div class="border-t pt-5">
+              <h4 class="text-sm font-semibold text-gray-700 mb-3"><i class="fas fa-map-marker-alt text-red-500 mr-2"></i>Location Tracking (Optional)</h4>
+              <p class="text-xs text-gray-400 mb-3">Set the venue GPS coordinates to enable location-based check-in verification.</p>
+              <div class="grid grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Latitude</label>
+                  <input type="number" name="venueLat" step="0.000001" placeholder="12.5190" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-forest-400" id="modalVenueLat" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Longitude</label>
+                  <input type="number" name="venueLng" step="0.000001" placeholder="121.1808" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-forest-400" id="modalVenueLng" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Radius (meters)</label>
+                  <input type="number" name="venueRadius" value="200" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-forest-400" />
+                </div>
+              </div>
+              <button type="button" onclick="getModalLocation()" class="mt-2 text-xs text-forest-400 hover:underline"><i class="fas fa-crosshairs mr-1"></i>Use current location</button>
+            </div>
+            <div class="flex items-center space-x-3 pt-2 border-t">
+              <button type="submit" id="addEventBtn" class="btn-forest px-6 py-2.5">
+                <i class="fas fa-calendar-plus mr-2"></i>Create Event
+              </button>
+              <button type="button" onclick="closeAddEventModal()" class="text-gray-500 hover:text-gray-700 text-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openAddEventModal() {
+      document.getElementById('addEventModal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('addEventAlert').classList.add('hidden');
+      document.getElementById('addEventForm').reset();
+    }
+    function closeAddEventModal() {
+      document.getElementById('addEventModal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAddEventModal(); });
+
+    function getModalLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          document.getElementById('modalVenueLat').value = pos.coords.latitude.toFixed(6);
+          document.getElementById('modalVenueLng').value = pos.coords.longitude.toFixed(6);
+        }, err => alert('Could not get location: ' + err.message));
+      } else {
+        alert('Geolocation not supported');
+      }
+    }
+
+    document.getElementById('addEventForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('addEventBtn');
+      const alert = document.getElementById('addEventAlert');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creating...';
+      alert.classList.add('hidden');
+
+      try {
+        const formData = Object.fromEntries(new FormData(this));
+        const res = await fetch('/events/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify(formData)
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert.className = 'bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm';
+          alert.innerHTML = '<i class="fas fa-check-circle mr-2"></i>' + data.message;
+          alert.classList.remove('hidden');
+          setTimeout(() => { window.location.reload(); }, 1000);
+        } else {
+          alert.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm';
+          alert.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>' + data.message;
+          alert.classList.remove('hidden');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-calendar-plus mr-2"></i>Create Event';
+        }
+      } catch (err) {
+        alert.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm';
+        alert.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Connection error. Please try again.';
+        alert.classList.remove('hidden');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-calendar-plus mr-2"></i>Create Event';
+      }
+    });
+  </script>
+</body>
+</html>

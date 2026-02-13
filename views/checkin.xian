@@ -1,0 +1,909 @@
+{{> head}}
+<body class="bg-leaf-50 min-h-screen">
+  {{> sidebar}}
+
+  <div class="ml-64 p-6">
+
+    <!-- ========== HEADER ========== -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800 flex items-center">
+          <div class="w-10 h-10 bg-forest-400 rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-forest-400/20">
+            <i class="fas fa-qrcode text-white text-lg"></i>
+          </div>
+          Check-In Station
+        </h1>
+        <p class="text-sm text-gray-500 mt-1 ml-[52px]">Scan RFID, enter Student ID, or use facial recognition</p>
+      </div>
+      <div class="flex items-center space-x-4">
+        <div class="text-right">
+          <p class="text-xs text-gray-400 font-medium" id="liveDate"></p>
+          <p class="text-lg font-bold text-gray-700 tabular-nums" id="liveClock"></p>
+        </div>
+        <div class="w-px h-10 bg-gray-200"></div>
+        <div id="connectionDot" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-200">
+          <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+          <span class="text-xs font-medium text-green-700">Live</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== EVENT SELECTION BAR ========== -->
+    <div class="bg-white rounded-xl shadow-sm border p-5 mb-6">
+      <div class="flex items-center space-x-4">
+        <div class="flex-shrink-0 w-10 h-10 bg-forest-50 rounded-lg flex items-center justify-center">
+          <i class="fas fa-calendar-check text-forest-500"></i>
+        </div>
+        <div class="flex-1">
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Active Event</label>
+          <select id="eventSelect" class="w-full px-0 py-1 border-0 focus:ring-0 outline-none text-sm font-semibold text-gray-800 bg-transparent cursor-pointer">
+            <option value="">— Select an event to start —</option>
+          </select>
+        </div>
+        <div id="eventBadge" class="hidden flex-shrink-0">
+          <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+            <i class="fas fa-broadcast-tower mr-1.5 animate-pulse"></i>Monitoring
+          </span>
+        </div>
+      </div>
+      <div id="eventInfo" class="hidden mt-3 pt-3 border-t border-gray-100">
+        <div class="flex items-center space-x-6 text-sm text-gray-600">
+          <span id="eventInfoDate" class="flex items-center"><i class="far fa-calendar text-forest-400 mr-1.5"></i></span>
+          <span id="eventInfoTime" class="flex items-center"><i class="far fa-clock text-forest-400 mr-1.5"></i></span>
+          <span id="eventInfoVenue" class="flex items-center"><i class="fas fa-map-marker-alt text-forest-400 mr-1.5"></i></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- ========== LEFT: CHECK-IN FORM ========== -->
+      <div class="lg:col-span-1 space-y-6">
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+
+          <!-- Method Tabs -->
+          <div class="flex border-b border-gray-100">
+            <button onclick="setMethod('rfid')" id="tabRfid" class="flex-1 py-3.5 text-xs font-semibold transition-all border-b-2 border-forest-500 text-forest-600 bg-forest-50/50">
+              <i class="fas fa-wifi mr-1.5"></i>RFID
+            </button>
+            <button onclick="setMethod('manual')" id="tabManual" class="flex-1 py-3.5 text-xs font-semibold transition-all border-b-2 border-transparent text-gray-400 hover:text-gray-600">
+              <i class="fas fa-keyboard mr-1.5"></i>Manual
+            </button>
+            <button onclick="setMethod('facial')" id="tabFacial" class="flex-1 py-3.5 text-xs font-semibold transition-all border-b-2 border-transparent text-gray-400 hover:text-gray-600">
+              <i class="fas fa-camera mr-1.5"></i>Face
+            </button>
+          </div>
+
+          <div class="p-5">
+            <!-- RFID / Manual Input -->
+            <div id="textInputSection">
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2" id="inputLabel">Scan RFID Tag</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400"><i class="fas fa-search"></i></span>
+                <input type="text" id="studentInput" placeholder="Tap RFID card or scan..." class="w-full pl-11 pr-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-forest-400 focus:border-forest-400 outline-none text-sm font-medium transition-all" autofocus />
+              </div>
+              <p class="text-xs text-gray-400 mt-2 flex items-center" id="inputHint">
+                <i class="fas fa-info-circle mr-1.5 text-forest-300"></i>Tap an RFID card or press Enter after scanning
+              </p>
+            </div>
+
+            <!-- Camera Section (Face) -->
+            <div id="cameraSection" class="hidden">
+              <div class="relative rounded-xl overflow-hidden bg-gray-900 aspect-video shadow-inner">
+                <video id="video" autoplay muted playsinline class="w-full h-full object-cover"></video>
+                <canvas id="overlay" class="absolute top-0 left-0 w-full h-full"></canvas>
+
+                <!-- Camera status pill -->
+                <div id="cameraStatus" class="absolute top-3 left-3">
+                  <div class="bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full inline-flex items-center">
+                    <span id="cameraStatusDot" class="w-2 h-2 rounded-full bg-yellow-400 mr-2 animate-pulse"></span>
+                    <span id="cameraStatusText">Loading models...</span>
+                  </div>
+                </div>
+
+                <!-- Match result overlay -->
+                <div id="matchOverlay" class="hidden absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+                  <div class="flex items-center space-x-3">
+                    <div class="w-11 h-11 rounded-full bg-green-500 flex items-center justify-center text-white shadow-lg shadow-green-500/30">
+                      <i class="fas fa-check text-lg"></i>
+                    </div>
+                    <div>
+                      <p id="matchName" class="text-white font-bold text-sm"></p>
+                      <p id="matchInfo" class="text-gray-300 text-xs"></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center space-x-2 mt-3">
+                <button onclick="captureAndMatch()" id="captureBtn" class="flex-1 bg-forest-600 hover:bg-forest-700 text-white py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm" disabled>
+                  <i class="fas fa-camera mr-2"></i>Capture & Match
+                </button>
+                <button onclick="toggleCamera()" id="camToggleBtn" class="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm text-gray-600 transition-all" title="Switch camera">
+                  <i class="fas fa-sync-alt"></i>
+                </button>
+              </div>
+
+              <!-- Model loading progress -->
+              <div id="faceModelProgress" class="mt-3">
+                <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span>Loading face models...</span>
+                  <span id="faceModelPct">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-1.5">
+                  <div id="faceModelBar" class="bg-forest-400 h-1.5 rounded-full transition-all duration-500" style="width:0%"></div>
+                </div>
+              </div>
+              <p class="text-xs text-gray-400 mt-2 flex items-center">
+                <i class="fas fa-info-circle mr-1.5 text-forest-300"></i>Position the student's face clearly in front of the camera
+              </p>
+            </div>
+
+            <!-- Location Toggle -->
+            <div class="flex items-center justify-between mt-4 p-3 bg-gray-50 rounded-xl">
+              <div>
+                <span class="text-xs font-semibold text-gray-700 flex items-center"><i class="fas fa-map-marker-alt text-red-400 mr-1.5"></i>Location Verification</span>
+                <p class="text-[11px] text-gray-400 mt-0.5">Verify student is on campus</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="locationToggle" class="sr-only peer" checked>
+                <div class="w-9 h-5 bg-gray-300 peer-checked:bg-forest-400 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+              </label>
+            </div>
+
+            <!-- Check-In Button -->
+            <button onclick="processCheckin()" id="checkinBtn" class="w-full mt-4 bg-forest-600 hover:bg-forest-700 text-white py-3.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-forest-600/20 flex items-center justify-center" disabled>
+              <i class="fas fa-check-circle mr-2"></i>Check In
+            </button>
+          </div>
+        </div>
+
+        <!-- ========== LAST CHECK-IN RESULT ========== -->
+        <div id="lastCheckinCard" class="hidden">
+          <div id="lastCheckinContent" class="rounded-xl shadow-sm border overflow-hidden transition-all duration-500"></div>
+        </div>
+
+        <!-- ========== STATS ========== -->
+        <div class="bg-white rounded-xl shadow-sm border p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-gray-800 text-sm flex items-center">
+              <i class="fas fa-chart-pie text-forest-400 mr-2"></i>Live Stats
+            </h3>
+            <span class="text-[11px] text-gray-400 tabular-nums" id="enrolledCount">0 enrolled</span>
+          </div>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="text-center p-3 bg-green-50 rounded-xl border border-green-100">
+              <p class="text-2xl font-extrabold text-green-600 tabular-nums" id="statPresent">0</p>
+              <p class="text-[11px] text-green-500 font-medium mt-0.5">Present</p>
+            </div>
+            <div class="text-center p-3 bg-amber-50 rounded-xl border border-amber-100">
+              <p class="text-2xl font-extrabold text-amber-600 tabular-nums" id="statLate">0</p>
+              <p class="text-[11px] text-amber-500 font-medium mt-0.5">Late</p>
+            </div>
+            <div class="text-center p-3 bg-forest-50 rounded-xl border border-forest-100">
+              <p class="text-2xl font-extrabold text-forest-600 tabular-nums" id="statTotal">0</p>
+              <p class="text-[11px] text-forest-500 font-medium mt-0.5">Total</p>
+            </div>
+          </div>
+          <!-- Verified location bar -->
+          <div class="mt-3 pt-3 border-t border-gray-100">
+            <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+              <span class="flex items-center"><i class="fas fa-shield-alt text-forest-400 mr-1"></i>Location verified</span>
+              <span id="statVerified" class="tabular-nums">0 / 0</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-1.5">
+              <div id="verifiedBar" class="h-1.5 rounded-full bg-forest-400 transition-all duration-500" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== RIGHT: LIVE FEED ========== -->
+      <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h3 class="font-bold text-gray-800 text-sm flex items-center">
+              <span class="relative flex h-3 w-3 mr-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </span>
+              Live Attendance Feed
+            </h3>
+            <div class="flex items-center space-x-3">
+              <span class="text-[11px] text-gray-400 tabular-nums" id="lastUpdate">Waiting for event...</span>
+              <button onclick="refreshFeed()" class="text-xs text-forest-600 hover:text-forest-700 font-medium px-2 py-1 rounded-lg hover:bg-forest-50 transition">
+                <i class="fas fa-sync-alt mr-1"></i>Refresh
+              </button>
+            </div>
+          </div>
+          <div class="overflow-x-auto max-h-[620px] overflow-y-auto" id="feedContainer">
+            <table class="w-full text-sm">
+              <thead class="sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10">
+                <tr class="text-left text-gray-500 text-xs uppercase tracking-wider">
+                  <th class="px-4 py-3 font-semibold">#</th>
+                  <th class="px-4 py-3 font-semibold">Student</th>
+                  <th class="px-4 py-3 font-semibold">Course</th>
+                  <th class="px-4 py-3 font-semibold">Method</th>
+                  <th class="px-4 py-3 font-semibold">Status</th>
+                  <th class="px-4 py-3 font-semibold text-center">Loc.</th>
+                  <th class="px-4 py-3 font-semibold">Time</th>
+                </tr>
+              </thead>
+              <tbody id="liveFeed">
+                <tr>
+                  <td colspan="7" class="px-4 py-16 text-center text-gray-400">
+                    <div class="flex flex-col items-center">
+                      <div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">
+                        <i class="fas fa-satellite-dish text-2xl text-gray-300"></i>
+                      </div>
+                      <p class="font-medium text-gray-500">Select an event to start monitoring</p>
+                      <p class="text-xs text-gray-400 mt-1">Check-ins will appear here in real time</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TOAST NOTIFICATION ========== -->
+  <div id="toast" class="fixed top-6 right-6 z-[9990] pointer-events-none transition-all duration-500 translate-x-[120%] opacity-0">
+    <div class="bg-white rounded-xl shadow-2xl border max-w-sm pointer-events-auto overflow-hidden">
+      <div class="flex items-start p-4 space-x-3">
+        <div id="toastIcon" class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"></div>
+        <div class="flex-1 min-w-0">
+          <p id="toastTitle" class="text-sm font-semibold text-gray-800"></p>
+          <p id="toastMsg" class="text-xs text-gray-500 mt-0.5"></p>
+        </div>
+        <button onclick="hideToast()" class="text-gray-400 hover:text-gray-600 transition p-1">
+          <i class="fas fa-times text-xs"></i>
+        </button>
+      </div>
+      <div id="toastBar" class="h-1 bg-green-500 transition-all duration-100" style="width:100%"></div>
+    </div>
+  </div>
+
+  <!-- face-api.js -->
+  <script src="/js/face-api.min.js"></script>
+
+  <script>
+    // ====================== STATE ======================
+    const events = {{{events}}};
+    let currentMethod = 'rfid';
+    let currentLat = null;
+    let currentLng = null;
+    let refreshInterval = null;
+    let videoStream = null;
+    let modelsLoaded = false;
+    let enrolledFaces = [];
+    let matchedStudentId = null;
+    let facingMode = 'user';
+    let toastTimeout = null;
+    let toastBarInterval = null;
+    let lastFeedCount = 0;
+
+    // ====================== INIT ======================
+    // Live clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('liveClock').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('liveDate').textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // Populate event select
+    const sel = document.getElementById('eventSelect');
+    events.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = e.eventName + ' — ' + e.eventDate + ' (' + e.venue + ')';
+      sel.appendChild(opt);
+    });
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const preEventId = urlParams.get('eventId');
+    if (preEventId) { sel.value = preEventId; onEventChange(); }
+    sel.addEventListener('change', onEventChange);
+
+    function onEventChange() {
+      const eid = sel.value;
+      const btn = document.getElementById('checkinBtn');
+      const info = document.getElementById('eventInfo');
+      const badge = document.getElementById('eventBadge');
+
+      if (eid) {
+        btn.disabled = false;
+        const ev = events.find(e => e.id == eid);
+        if (ev) {
+          info.classList.remove('hidden');
+          badge.classList.remove('hidden');
+          document.getElementById('eventInfoDate').innerHTML = '<i class="far fa-calendar text-forest-400 mr-1.5"></i>' + ev.eventDate;
+          document.getElementById('eventInfoTime').innerHTML = '<i class="far fa-clock text-forest-400 mr-1.5"></i>' + ev.startTime + ' - ' + ev.endTime;
+          document.getElementById('eventInfoVenue').innerHTML = '<i class="fas fa-map-marker-alt text-forest-400 mr-1.5"></i>' + ev.venue;
+        }
+        lastFeedCount = 0;
+        refreshFeed();
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(refreshFeed, 8000);
+      } else {
+        btn.disabled = true;
+        info.classList.add('hidden');
+        badge.classList.add('hidden');
+        if (refreshInterval) clearInterval(refreshInterval);
+      }
+    }
+
+    // ====================== METHOD TABS ======================
+    function setMethod(m) {
+      currentMethod = m;
+      matchedStudentId = null;
+
+      const tabs = {
+        rfid:   document.getElementById('tabRfid'),
+        manual: document.getElementById('tabManual'),
+        facial: document.getElementById('tabFacial')
+      };
+
+      Object.entries(tabs).forEach(([key, tab]) => {
+        if (key === m) {
+          tab.className = 'flex-1 py-3.5 text-xs font-semibold transition-all border-b-2 border-forest-500 text-forest-600 bg-forest-50/50';
+        } else {
+          tab.className = 'flex-1 py-3.5 text-xs font-semibold transition-all border-b-2 border-transparent text-gray-400 hover:text-gray-600';
+        }
+      });
+
+      const label = document.getElementById('inputLabel');
+      const input = document.getElementById('studentInput');
+      const hint = document.getElementById('inputHint');
+      const textSection = document.getElementById('textInputSection');
+      const camSection = document.getElementById('cameraSection');
+      const matchOv = document.getElementById('matchOverlay');
+      matchOv.classList.add('hidden');
+
+      if (m === 'facial') {
+        textSection.classList.add('hidden');
+        camSection.classList.remove('hidden');
+        startCamera();
+      } else {
+        textSection.classList.remove('hidden');
+        camSection.classList.add('hidden');
+        stopCamera();
+        if (m === 'rfid') {
+          label.textContent = 'Scan RFID Tag';
+          input.placeholder = 'Tap RFID card or scan...';
+          hint.innerHTML = '<i class="fas fa-info-circle mr-1.5 text-forest-300"></i>Tap an RFID card or press Enter after scanning';
+        } else {
+          label.textContent = 'Enter Student ID';
+          input.placeholder = 'e.g. 2024-00123';
+          hint.innerHTML = '<i class="fas fa-info-circle mr-1.5 text-forest-300"></i>Type the student ID number and press Enter';
+        }
+        input.focus();
+      }
+    }
+
+    // ====================== TOAST NOTIFICATIONS ======================
+    function showToast(type, title, msg, duration) {
+      duration = duration || 5000;
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toastIcon');
+      const bar = document.getElementById('toastBar');
+
+      document.getElementById('toastTitle').textContent = title;
+      document.getElementById('toastMsg').textContent = msg;
+
+      if (type === 'success') {
+        icon.className = 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-green-100 text-green-600';
+        icon.innerHTML = '<i class="fas fa-check-circle text-lg"></i>';
+        bar.className = 'h-1 bg-green-500 transition-all duration-100';
+      } else if (type === 'error') {
+        icon.className = 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-red-100 text-red-600';
+        icon.innerHTML = '<i class="fas fa-exclamation-circle text-lg"></i>';
+        bar.className = 'h-1 bg-red-500 transition-all duration-100';
+      } else {
+        icon.className = 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-amber-100 text-amber-600';
+        icon.innerHTML = '<i class="fas fa-info-circle text-lg"></i>';
+        bar.className = 'h-1 bg-amber-500 transition-all duration-100';
+      }
+
+      bar.style.width = '100%';
+      toast.classList.remove('translate-x-[120%]', 'opacity-0');
+
+      // Countdown bar
+      if (toastBarInterval) clearInterval(toastBarInterval);
+      var remaining = duration;
+      var step = 50;
+      toastBarInterval = setInterval(function() {
+        remaining -= step;
+        bar.style.width = Math.max(0, (remaining / duration) * 100) + '%';
+        if (remaining <= 0) clearInterval(toastBarInterval);
+      }, step);
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(hideToast, duration);
+    }
+
+    function hideToast() {
+      var toast = document.getElementById('toast');
+      toast.classList.add('translate-x-[120%]', 'opacity-0');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      if (toastBarInterval) clearInterval(toastBarInterval);
+    }
+
+    // ====================== LAST CHECK-IN CARD ======================
+    function showLastCheckin(type, data) {
+      var card = document.getElementById('lastCheckinCard');
+      var content = document.getElementById('lastCheckinContent');
+
+      if (type === 'success') {
+        var s = data.student || {};
+        var a = data.attendance || {};
+        var statusColor = a.status === 'present' ? 'green' : 'amber';
+        var initials = s.name ? s.name.split(' ').map(function(w){ return w[0]; }).join('') : '?';
+
+        content.innerHTML =
+          '<div class="bg-green-500 px-4 py-2 flex items-center space-x-2">' +
+            '<i class="fas fa-check-circle text-white"></i>' +
+            '<span class="text-white text-xs font-semibold">Check-In Successful</span>' +
+            '<span class="text-green-200 text-[11px] ml-auto">' + new Date().toLocaleTimeString() + '</span>' +
+          '</div>' +
+          '<div class="bg-white p-4">' +
+            '<div class="flex items-center space-x-3">' +
+              '<div class="w-12 h-12 rounded-full bg-forest-100 flex items-center justify-center text-forest-700 font-bold text-sm flex-shrink-0">' + initials + '</div>' +
+              '<div class="flex-1 min-w-0">' +
+                '<p class="font-semibold text-gray-800 truncate">' + (s.name || '') + '</p>' +
+                '<p class="text-xs text-gray-500">' + (s.studentId || '') + ' &bull; ' + (s.course || '') + (s.yearLevel ? ' &bull; Year ' + s.yearLevel : '') + '</p>' +
+              '</div>' +
+            '</div>' +
+            '<div class="flex items-center space-x-3 mt-3 pt-3 border-t border-gray-100">' +
+              '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-' + statusColor + '-100 text-' + statusColor + '-700">' +
+                '<i class="fas fa-circle text-[6px] mr-1.5"></i>' + (a.status || '') +
+              '</span>' +
+              '<span class="text-xs text-gray-400">' + (a.verificationMethod || '') + '</span>' +
+              (a.locationVerified
+                ? '<span class="text-xs text-green-500"><i class="fas fa-shield-alt mr-1"></i>Verified</span>'
+                : '') +
+            '</div>' +
+          '</div>';
+      } else {
+        content.innerHTML =
+          '<div class="bg-red-500 px-4 py-2 flex items-center space-x-2">' +
+            '<i class="fas fa-exclamation-circle text-white"></i>' +
+            '<span class="text-white text-xs font-semibold">Check-In Failed</span>' +
+          '</div>' +
+          '<div class="bg-white p-4">' +
+            '<p class="text-sm text-gray-700">' + (data.message || 'Unknown error') + '</p>' +
+          '</div>';
+      }
+
+      card.classList.remove('hidden');
+      content.style.animation = 'none';
+      content.offsetHeight; // trigger reflow
+      content.style.animation = 'fadeInUp 0.4s ease-out';
+    }
+
+    // ====================== CAMERA ======================
+    function waitForVideo(videoEl) {
+      return new Promise(function(resolve, reject) {
+        if (videoEl.readyState >= 2) { resolve(); return; }
+        function onReady() { videoEl.removeEventListener('loadeddata', onReady); videoEl.removeEventListener('error', onErr); resolve(); }
+        function onErr(e) { videoEl.removeEventListener('loadeddata', onReady); videoEl.removeEventListener('error', onErr); reject(e); }
+        videoEl.addEventListener('loadeddata', onReady);
+        videoEl.addEventListener('error', onErr);
+        setTimeout(function() { videoEl.removeEventListener('loadeddata', onReady); videoEl.removeEventListener('error', onErr); resolve(); }, 3000);
+      });
+    }
+
+    async function startCamera() {
+      try {
+        stopCamera();
+        await new Promise(function(r){ setTimeout(r, 200); });
+        var constraints = { video: { facingMode: facingMode, width: { ideal: 640 }, height: { ideal: 480 } } };
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+        var videoEl = document.getElementById('video');
+        videoEl.srcObject = videoStream;
+        await videoEl.play().catch(function(){});
+        await waitForVideo(videoEl);
+        setCameraStatus('yellow', 'Camera active');
+
+        if (!modelsLoaded) {
+          await loadFaceModels();
+        } else {
+          setCameraStatus('green', 'Ready — position face');
+          document.getElementById('captureBtn').disabled = false;
+          document.getElementById('faceModelProgress').classList.add('hidden');
+        }
+        loadEnrolledFaces();
+      } catch (err) {
+        console.error('Camera error:', err);
+        setCameraStatus('red', 'Camera access denied');
+      }
+    }
+
+    function stopCamera() {
+      if (videoStream) {
+        videoStream.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+        videoStream = null;
+      }
+      var video = document.getElementById('video');
+      if (video) { video.srcObject = null; video.load(); }
+    }
+
+    function toggleCamera() {
+      facingMode = facingMode === 'user' ? 'environment' : 'user';
+      startCamera();
+    }
+
+    function setCameraStatus(color, text) {
+      var dot = document.getElementById('cameraStatusDot');
+      var txt = document.getElementById('cameraStatusText');
+      var colors = { green: 'bg-green-400', yellow: 'bg-yellow-400', red: 'bg-red-400' };
+      if (dot) dot.className = 'w-2 h-2 rounded-full mr-2 animate-pulse ' + (colors[color] || 'bg-gray-400');
+      if (txt) txt.textContent = text;
+    }
+
+    // ====================== FACE MODELS ======================
+    async function loadFaceModels() {
+      setCameraStatus('yellow', 'Loading face models...');
+      var progress = document.getElementById('faceModelProgress');
+      var bar = document.getElementById('faceModelBar');
+      var pct = document.getElementById('faceModelPct');
+      progress.classList.remove('hidden');
+
+      try {
+        bar.style.width = '20%'; pct.textContent = '20%';
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+        bar.style.width = '50%'; pct.textContent = '50%';
+        await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+        bar.style.width = '80%'; pct.textContent = '80%';
+        await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+        bar.style.width = '100%'; pct.textContent = '100%';
+
+        modelsLoaded = true;
+        setTimeout(function(){ progress.classList.add('hidden'); }, 500);
+        setCameraStatus('green', 'Ready — position face');
+        document.getElementById('captureBtn').disabled = false;
+      } catch (err) {
+        console.error('Model load error:', err);
+        setCameraStatus('red', 'Failed to load models');
+      }
+    }
+
+    // ====================== ENROLLED FACES ======================
+    async function loadEnrolledFaces() {
+      try {
+        var resp = await fetch('/api/students/faces');
+        var data = await resp.json();
+        if (data.success) {
+          enrolledFaces = data.students.map(function(s){
+            return {
+              id: s.id,
+              studentId: s.studentId,
+              name: s.firstName + ' ' + s.lastName,
+              course: s.course,
+              yearLevel: s.yearLevel,
+              descriptor: new Float32Array(JSON.parse(s.faceData))
+            };
+          });
+          document.getElementById('enrolledCount').textContent = enrolledFaces.length + ' face(s) enrolled';
+        }
+      } catch (err) {
+        console.error('Load faces error:', err);
+      }
+    }
+
+    // ====================== CAPTURE & MATCH ======================
+    async function captureAndMatch() {
+      if (!modelsLoaded) return;
+      var video = document.getElementById('video');
+      var overlay = document.getElementById('overlay');
+      var matchOv = document.getElementById('matchOverlay');
+      var captureBtn = document.getElementById('captureBtn');
+
+      if (!videoStream || !video.srcObject || video.readyState < 2) {
+        showToast('error', 'Camera Not Ready', 'Please wait for the camera to initialize.');
+        startCamera();
+        return;
+      }
+
+      captureBtn.disabled = true;
+      captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Detecting...';
+      setCameraStatus('yellow', 'Scanning face...');
+      matchOv.classList.add('hidden');
+
+      try {
+        var detection = await faceapi
+          .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        var ctx = overlay.getContext('2d');
+        overlay.width = video.videoWidth;
+        overlay.height = video.videoHeight;
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+        if (!detection) {
+          setCameraStatus('red', 'No face detected');
+          showToast('error', 'No Face Detected', 'Position your face clearly in front of the camera and try again.');
+          captureBtn.disabled = false;
+          captureBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture & Match';
+          return;
+        }
+
+        // Draw face box
+        var box = detection.detection.box;
+        ctx.strokeStyle = '#4C763B';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+        // Draw landmarks
+        var landmarks = detection.landmarks.positions;
+        ctx.fillStyle = '#B0CE88';
+        landmarks.forEach(function(pt) {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 2, 0, 2 * Math.PI);
+          ctx.fill();
+        });
+
+        if (enrolledFaces.length === 0) {
+          setCameraStatus('yellow', 'No faces enrolled');
+          showToast('warn', 'No Enrolled Faces', 'Go to Face Enrollment page to register student faces first.');
+          captureBtn.disabled = false;
+          captureBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture & Match';
+          return;
+        }
+
+        // Match against enrolled faces
+        var queryDescriptor = detection.descriptor;
+        var bestMatch = null;
+        var bestDistance = Infinity;
+
+        enrolledFaces.forEach(function(face) {
+          var distance = faceapi.euclideanDistance(queryDescriptor, face.descriptor);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestMatch = face;
+          }
+        });
+
+        var threshold = 0.55;
+        if (bestMatch && bestDistance < threshold) {
+          var confidence = ((1 - bestDistance) * 100).toFixed(1);
+          matchedStudentId = bestMatch.studentId;
+          setCameraStatus('green', 'Face matched!');
+          document.getElementById('matchName').textContent = bestMatch.name;
+          document.getElementById('matchInfo').textContent = bestMatch.studentId + ' \u2022 ' + bestMatch.course + ' \u2022 Confidence: ' + confidence + '%';
+          matchOv.classList.remove('hidden');
+
+          ctx.strokeStyle = '#22c55e';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+          ctx.fillStyle = 'rgba(34, 197, 94, 0.15)';
+          ctx.fillRect(box.x, box.y, box.width, box.height);
+
+          showToast('success', 'Face Matched', bestMatch.name + ' (' + confidence + '% confidence) \u2014 checking in...');
+
+          var eid = sel.value;
+          if (eid) {
+            setTimeout(function(){ autoFaceCheckin(bestMatch.studentId); }, 800);
+          }
+        } else {
+          setCameraStatus('red', 'No match found');
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+          showToast('error', 'No Match', 'Face not recognized. Try again or use manual check-in.');
+          matchedStudentId = null;
+        }
+      } catch (err) {
+        console.error('Capture error:', err);
+        setCameraStatus('red', 'Detection failed');
+        showToast('error', 'Detection Failed', 'Face detection encountered an error. Please try again.');
+      }
+
+      captureBtn.disabled = false;
+      captureBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture & Match';
+    }
+
+    async function autoFaceCheckin(studentId) {
+      var eid = sel.value;
+      if (!eid) return;
+      var useLocation = document.getElementById('locationToggle').checked;
+      try {
+        var resp = await fetch('/api/checkin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentIdentifier: studentId,
+            eventId: eid,
+            verificationMethod: 'facial',
+            locationLat: useLocation ? currentLat : null,
+            locationLng: useLocation ? currentLng : null
+          })
+        });
+        var data = await resp.json();
+        if (data.success) {
+          showToast('success', 'Checked In!', data.message);
+          showLastCheckin('success', data);
+          refreshFeed();
+        } else {
+          showToast('error', 'Check-In Failed', data.message);
+          showLastCheckin('error', data);
+        }
+      } catch (err) {
+        showToast('error', 'Network Error', 'Could not connect to server.');
+      }
+    }
+
+    // ====================== STANDARD CHECKIN ======================
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(function(pos) {
+        currentLat = pos.coords.latitude;
+        currentLng = pos.coords.longitude;
+      }, function(){}, { enableHighAccuracy: true });
+    }
+
+    async function processCheckin() {
+      var eid = sel.value;
+      var input = document.getElementById('studentInput');
+
+      if (currentMethod === 'facial') {
+        if (matchedStudentId) {
+          autoFaceCheckin(matchedStudentId);
+        } else {
+          captureAndMatch();
+        }
+        return;
+      }
+
+      var val = input.value.trim();
+      if (!eid) { showToast('error', 'No Event Selected', 'Please select an event first.'); return; }
+      if (!val) { showToast('error', 'No Input', 'Please enter or scan a student identifier.'); return; }
+
+      var btn = document.getElementById('checkinBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+
+      var useLocation = document.getElementById('locationToggle').checked;
+
+      try {
+        var resp = await fetch('/api/checkin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentIdentifier: val,
+            eventId: eid,
+            verificationMethod: currentMethod,
+            locationLat: useLocation ? currentLat : null,
+            locationLng: useLocation ? currentLng : null
+          })
+        });
+        var data = await resp.json();
+
+        if (data.success) {
+          showToast('success', 'Checked In!', data.message);
+          showLastCheckin('success', data);
+          input.value = '';
+          input.focus();
+          refreshFeed();
+        } else {
+          showToast('error', 'Check-In Failed', data.message);
+          showLastCheckin('error', data);
+          input.select();
+        }
+      } catch (err) {
+        showToast('error', 'Connection Error', 'Could not reach the server. Check your network.');
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Check In';
+    }
+
+    // Enter key to submit
+    document.getElementById('studentInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') processCheckin();
+    });
+
+    // ====================== LIVE FEED ======================
+    async function refreshFeed() {
+      var eid = sel.value;
+      if (!eid) return;
+      try {
+        var resp = await fetch('/api/attendance/live/' + eid);
+        var data = await resp.json();
+        if (data.success) {
+          document.getElementById('statPresent').textContent = data.present;
+          document.getElementById('statLate').textContent = data.late;
+          document.getElementById('statTotal').textContent = data.total;
+
+          var verifiedCount = data.verified || 0;
+          document.getElementById('statVerified').textContent = verifiedCount + ' / ' + data.total;
+          document.getElementById('verifiedBar').style.width = data.total > 0 ? ((verifiedCount / data.total) * 100) + '%' : '0%';
+
+          document.getElementById('lastUpdate').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+          var tbody = document.getElementById('liveFeed');
+
+          if (data.attendances.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-16 text-center text-gray-400">' +
+              '<div class="flex flex-col items-center">' +
+                '<div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">' +
+                  '<i class="fas fa-hourglass-half text-2xl text-gray-300"></i>' +
+                '</div>' +
+                '<p class="font-medium text-gray-500">Waiting for check-ins</p>' +
+                '<p class="text-xs text-gray-400 mt-1">Students will appear here as they check in</p>' +
+              '</div>' +
+            '</td></tr>';
+            return;
+          }
+
+          // Detect new entries for animation
+          var isNew = data.attendances.length > lastFeedCount;
+          lastFeedCount = data.attendances.length;
+
+          tbody.innerHTML = '';
+          data.attendances.forEach(function(a, i) {
+            var s = a.student || {};
+            var initials = (s.firstName ? s.firstName[0] : '') + (s.lastName ? s.lastName[0] : '');
+
+            // Method badge
+            var methodMap = {
+              rfid: { icon: 'fa-wifi', bg: 'bg-blue-50 text-blue-600 border-blue-100' },
+              facial: { icon: 'fa-camera', bg: 'bg-purple-50 text-purple-600 border-purple-100' },
+              manual: { icon: 'fa-keyboard', bg: 'bg-gray-50 text-gray-600 border-gray-200' }
+            };
+            var mStyle = methodMap[a.verificationMethod] || methodMap.manual;
+
+            // Status badge
+            var stMap = {
+              present: { bg: 'bg-green-50 text-green-700 border-green-100', icon: 'fa-check-circle' },
+              late: { bg: 'bg-amber-50 text-amber-700 border-amber-100', icon: 'fa-clock' }
+            };
+            var stStyle = stMap[a.status] || stMap.present;
+
+            var locIcon = a.locationVerified
+              ? '<span class="text-green-500" title="Location verified"><i class="fas fa-shield-alt"></i></span>'
+              : '<span class="text-gray-300" title="Not verified"><i class="fas fa-minus-circle"></i></span>';
+
+            var animClass = (isNew && i === 0) ? 'animate-fadeInUp bg-green-50/50' : '';
+
+            tbody.innerHTML +=
+              '<tr class="border-b border-gray-50 hover:bg-gray-50/80 transition-colors ' + animClass + '">' +
+                '<td class="px-4 py-3 text-gray-400 text-xs font-medium">' + (data.attendances.length - i) + '</td>' +
+                '<td class="px-4 py-3">' +
+                  '<div class="flex items-center space-x-3">' +
+                    '<div class="w-8 h-8 rounded-full bg-forest-100 flex items-center justify-center text-forest-700 text-xs font-bold flex-shrink-0">' + initials + '</div>' +
+                    '<div>' +
+                      '<p class="text-sm font-medium text-gray-800">' + (s.firstName || '') + ' ' + (s.lastName || '') + '</p>' +
+                      '<p class="text-xs text-gray-400">' + (s.studentId || '') + '</p>' +
+                    '</div>' +
+                  '</div>' +
+                '</td>' +
+                '<td class="px-4 py-3 text-sm text-gray-600">' + (s.course || '') + '</td>' +
+                '<td class="px-4 py-3">' +
+                  '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ' + mStyle.bg + '">' +
+                    '<i class="fas ' + mStyle.icon + ' mr-1"></i>' + a.verificationMethod +
+                  '</span>' +
+                '</td>' +
+                '<td class="px-4 py-3">' +
+                  '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ' + stStyle.bg + '">' +
+                    '<i class="fas ' + stStyle.icon + ' mr-1"></i>' + a.status +
+                  '</span>' +
+                '</td>' +
+                '<td class="px-4 py-3 text-center">' + locIcon + '</td>' +
+                '<td class="px-4 py-3 text-xs text-gray-500 tabular-nums">' + new Date(a.checkInTime).toLocaleTimeString() + '</td>' +
+              '</tr>';
+          });
+
+          // Scroll to top on new entry
+          if (isNew) {
+            document.getElementById('feedContainer').scrollTop = 0;
+          }
+        }
+      } catch (err) {}
+    }
+  </script>
+</body>
+</html>

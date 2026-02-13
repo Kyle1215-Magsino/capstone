@@ -1,0 +1,56 @@
+{{> head}}
+<body class="bg-gradient-to-br from-leaf-50 via-white to-forest-50 min-h-screen flex items-center justify-center">
+  <div class="w-full max-w-md animate-scaleIn">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center space-x-3 mb-2">
+        <div class="w-10 h-10 bg-forest-400 rounded-lg flex items-center justify-center shadow-lg shadow-forest-400/25 animate-float">
+          <i class="fas fa-calendar-check text-brand-100 text-lg"></i>
+        </div>
+        <span class="text-2xl font-bold text-dark-900">U-EventTrack</span>
+      </div>
+      <p class="text-gray-500 text-sm">Sign in to manage attendance</p>
+    </div>
+
+    {{#if error_msg.length}}
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm animate-fadeIn">
+      <i class="fas fa-exclamation-circle mr-2"></i>{{error_msg}}
+    </div>
+    {{/if}}
+    {{#if success_msg.length}}
+    <div class="bg-leaf-50 border border-leaf-200 text-forest-400 px-4 py-3 rounded-lg mb-4 text-sm animate-fadeIn">
+      <i class="fas fa-check-circle mr-2"></i>{{success_msg}}
+    </div>
+    {{/if}}
+
+    <form class="bg-white rounded-xl shadow-xl shadow-forest-400/5 p-8 space-y-5 border border-leaf-100" method="POST" action="/login">
+      <div class="animate-fadeInUp delay-100">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-leaf-400"><i class="fas fa-envelope"></i></span>
+          <input type="email" name="email" placeholder="you@minsu.edu.ph" class="input-field pl-12" required />
+        </div>
+      </div>
+      <div class="animate-fadeInUp delay-200">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-leaf-400"><i class="fas fa-lock"></i></span>
+          <input type="password" name="password" placeholder="••••••••" class="input-field pl-12" required />
+        </div>
+      </div>
+      <div class="flex items-center justify-between text-sm animate-fadeInUp delay-300">
+        <label class="flex items-center cursor-pointer">
+          <input type="checkbox" name="remember" value="true" class="rounded border-gray-300 text-forest-400 focus:ring-forest-400 mr-2">
+          Remember me
+        </label>
+        <a href="/forgot-password" class="text-forest-400 hover:text-forest-500 font-medium transition-colors duration-300">Forgot password?</a>
+      </div>
+      <button type="submit" class="w-full btn-forest py-2.5 animate-fadeInUp delay-400">
+        <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+      </button>
+      <p class="text-center text-sm text-gray-500 animate-fadeInUp delay-500">
+        Don't have an account? <a href="/register" class="text-forest-400 font-semibold hover:text-forest-500 transition-colors duration-300">Register</a>
+      </p>
+    </form>
+  </div>
+</body>
+</html>

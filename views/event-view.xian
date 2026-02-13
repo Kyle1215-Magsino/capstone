@@ -1,0 +1,119 @@
+{{> head}}
+<body class="bg-leaf-50 min-h-screen">
+  {{> sidebar}}
+
+  <div class="ml-64 p-6">
+    <div class="mb-6">
+      <a href="/events" class="text-sm text-forest-400 hover:underline"><i class="fas fa-arrow-left mr-1"></i>Back to Events</a>
+      <h1 class="text-2xl font-bold text-gray-800 mt-2" id="eventTitle">Event Details</h1>
+    </div>
+
+    <div id="eventArea"></div>
+
+    <!-- Live Attendance Feed -->
+    <div class="mt-6 bg-white rounded-xl shadow-sm border p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-users text-forest-400 mr-2"></i>Attendance List</h3>
+        <div class="flex items-center space-x-3">
+          <span class="text-sm text-gray-500">Total: <strong id="totalCount">{{ totalRegistered }}</strong></span>
+          <span class="text-sm text-green-600">Present: <strong>{{ presentCount }}</strong></span>
+          <span class="text-sm text-yellow-600">Late: <strong>{{ lateCount }}</strong></span>
+          <button onclick="refreshAttendance()" class="text-forest-400 text-sm hover:underline"><i class="fas fa-sync-alt mr-1"></i>Refresh</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-gray-500 border-b">
+              <th class="px-4 py-2 font-medium">#</th>
+              <th class="px-4 py-2 font-medium">Student ID</th>
+              <th class="px-4 py-2 font-medium">Name</th>
+              <th class="px-4 py-2 font-medium">Course</th>
+              <th class="px-4 py-2 font-medium">Method</th>
+              <th class="px-4 py-2 font-medium">Status</th>
+              <th class="px-4 py-2 font-medium">Location</th>
+              <th class="px-4 py-2 font-medium">Time</th>
+            </tr>
+          </thead>
+          <tbody id="attendanceBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const event = {{{event}}};
+    const area = document.getElementById('eventArea');
+    document.getElementById('eventTitle').textContent = event.eventName;
+
+    const statusColors = { upcoming:'bg-forest-100 text-forest-600', ongoing:'bg-green-100 text-green-700', completed:'bg-gray-100 text-gray-700', cancelled:'bg-red-100 text-red-700' };
+    const sc = statusColors[event.status] || 'bg-gray-100 text-gray-700';
+    const org = event.organizer ? event.organizer.name : 'Unknown';
+
+    area.innerHTML = `<div class="bg-white rounded-xl shadow-sm border p-6">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <span class="px-3 py-1 rounded-full text-xs font-medium ${sc}">${event.status.toUpperCase()}</span>
+          <h2 class="text-xl font-bold text-gray-800 mt-2">${event.eventName}</h2>
+          <p class="text-sm text-gray-500 mt-1">${event.description || ''}</p>
+        </div>
+        <div class="flex space-x-2">
+          <a href="/checkin?eventId=${event.id}" class="btn-leaf px-4 py-2 text-sm"><i class="fas fa-qrcode mr-1"></i>Start Check-In</a>
+          <a href="/events/${event.id}/edit" class="bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition"><i class="fas fa-edit mr-1"></i>Edit</a>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div class="bg-gray-50 rounded-lg p-3"><span class="text-gray-500 block text-xs mb-1">Date</span><strong>${event.eventDate}</strong></div>
+        <div class="bg-gray-50 rounded-lg p-3"><span class="text-gray-500 block text-xs mb-1">Time</span><strong>${event.startTime} - ${event.endTime}</strong></div>
+        <div class="bg-gray-50 rounded-lg p-3"><span class="text-gray-500 block text-xs mb-1">Venue</span><strong>${event.venue}</strong></div>
+        <div class="bg-gray-50 rounded-lg p-3"><span class="text-gray-500 block text-xs mb-1">Organizer</span><strong>${org}</strong></div>
+      </div>
+    </div>`;
+
+    // Populate attendance
+    const attendances = event.attendances || [];
+    renderAttendance(attendances);
+
+    function renderAttendance(list) {
+      const tbody = document.getElementById('attendanceBody');
+      tbody.innerHTML = '';
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">No attendance records yet.</td></tr>';
+        return;
+      }
+      list.forEach((a, i) => {
+        const s = a.student || {};
+        const mClass = a.verificationMethod === 'rfid' ? 'bg-blue-100 text-blue-700' : a.verificationMethod === 'facial' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700';
+        const stClass = a.status === 'present' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+        const locIcon = a.locationVerified ? '<span class="text-green-500"><i class="fas fa-check-circle"></i> Verified</span>' : '<span class="text-gray-400"><i class="fas fa-minus-circle"></i> N/A</span>';
+            tbody.innerHTML += `<tr class="hover:bg-leaf-50 border-b border-gray-50">
+          <td class="px-4 py-2.5 text-gray-500">${i+1}</td>
+          <td class="px-4 py-2.5 font-medium">${s.studentId || ''}</td>
+          <td class="px-4 py-2.5">${s.firstName || ''} ${s.lastName || ''}</td>
+          <td class="px-4 py-2.5">${s.course || ''}</td>
+          <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${mClass}">${a.verificationMethod}</span></td>
+          <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${stClass}">${a.status}</span></td>
+          <td class="px-4 py-2.5 text-xs">${locIcon}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-500">${new Date(a.checkInTime).toLocaleString()}</td>
+        </tr>`;
+      });
+    }
+
+    function refreshAttendance() {
+      fetch('/api/attendance/live/' + event.id)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            renderAttendance(data.attendances);
+            document.getElementById('totalCount').textContent = data.total;
+          }
+        });
+    }
+
+    // Auto-refresh every 10 seconds if event is ongoing
+    if (event.status === 'ongoing') {
+      setInterval(refreshAttendance, 10000);
+    }
+  </script>
+</body>
+</html>

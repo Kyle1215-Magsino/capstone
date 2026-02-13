@@ -1,0 +1,582 @@
+{{> head}}
+<body class="bg-leaf-50 min-h-screen">
+  {{> sidebar}}
+
+  <div class="ml-64 p-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-user-circle text-forest-400 mr-2"></i>Face Enrollment</h1>
+        <p class="text-sm text-gray-500">Register student faces for facial recognition check-in</p>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="text-xs text-gray-400" id="enrolledCount">Loading...</span>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-forest-100 text-forest-700">
+          <i class="fas fa-shield-alt mr-1"></i>Secure Enrollment
+        </span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Left: Student Selection -->
+      <div class="lg:col-span-1">
+        <div class="bg-white rounded-xl shadow-sm border p-6">
+          <h3 class="font-bold text-gray-800 mb-4 text-sm"><i class="fas fa-users text-forest-400 mr-2"></i>Select Student</h3>
+
+          <!-- Filter -->
+          <div class="relative mb-3">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fas fa-filter"></i></span>
+            <input type="text" id="studentFilter" placeholder="Filter by name, ID, or course..." class="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest-400 outline-none text-sm" autocomplete="off" autofocus />
+            <button onclick="clearFilter()" id="clearBtn" class="hidden absolute inset-y-0 right-0 pr-3 text-gray-400 hover:text-gray-600">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+
+          <!-- Student List -->
+          <div id="studentList" class="max-h-72 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-sm"></div>
+
+          <!-- Selected Student Card -->
+          <div id="selectedStudent" class="hidden">
+            <div class="p-4 bg-gradient-to-r from-forest-50 to-leaf-50 rounded-lg border border-forest-100">
+              <div class="flex items-center space-x-3">
+                <div id="studentAvatar" class="w-14 h-14 rounded-full bg-forest-200 flex items-center justify-center text-forest-700 font-bold text-lg flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <p id="studentName" class="font-semibold text-gray-800 truncate"></p>
+                  <p id="studentInfo" class="text-xs text-gray-500 truncate"></p>
+                  <div id="studentFaceStatus" class="mt-1"></div>
+                </div>
+                <button onclick="deselectStudent()" class="text-gray-400 hover:text-red-500 transition p-1">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Enroll Button -->
+            <button onclick="startEnrollment()" id="enrollStartBtn" class="w-full mt-4 bg-forest-600 hover:bg-forest-700 text-white py-3 rounded-lg text-sm font-medium transition flex items-center justify-center">
+              <i class="fas fa-camera mr-2"></i>Start Face Enrollment
+            </button>
+          </div>
+
+          <!-- Status Message -->
+          <div id="statusMsg" class="hidden mt-3 p-3 rounded-lg text-sm"></div>
+        </div>
+
+        <!-- Enrolled Students List -->
+        <div class="bg-white rounded-xl shadow-sm border p-6 mt-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-gray-800 text-sm"><i class="fas fa-users text-green-500 mr-2"></i>Enrolled Faces</h3>
+            <button onclick="loadEnrolledFaces()" class="text-xs text-forest-600 hover:text-forest-700 font-medium">
+              <i class="fas fa-sync-alt mr-1"></i>Refresh
+            </button>
+          </div>
+          <div id="enrolledList" class="max-h-64 overflow-y-auto space-y-2">
+            <div class="text-center py-6 text-gray-400 text-xs">
+              <i class="fas fa-spinner fa-spin text-2xl mb-2 block"></i>
+              Loading...
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-gray-100">
+            <span class="text-xs text-gray-400" id="enrolledTotal">0 enrolled</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Camera & Enrollment -->
+      <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm border p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-gray-800 text-sm"><i class="fas fa-video text-forest-400 mr-2"></i>Face Capture</h3>
+            <div id="modelStatus" class="text-xs text-gray-400">
+              <i class="fas fa-circle text-yellow-400 mr-1 animate-pulse"></i>Loading models...
+            </div>
+          </div>
+
+          <!-- Model loading progress -->
+          <div id="modelProgress" class="mb-4">
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div id="modelBar" class="h-2 rounded-full transition-all duration-500" style="width:0%; background: linear-gradient(90deg, #4C763B, #B0CE88);"></div>
+            </div>
+            <p class="text-xs text-gray-400 mt-1" id="modelPct">0%</p>
+          </div>
+
+          <!-- Camera Preview -->
+          <div class="relative rounded-xl overflow-hidden bg-gray-900 aspect-video mb-4" id="cameraContainer">
+            <video id="video" autoplay muted playsinline class="w-full h-full object-cover" style="transform: scaleX(-1);"></video>
+
+            <!-- Face detection overlay -->
+            <canvas id="overlay" class="absolute top-0 left-0 w-full h-full" style="transform: scaleX(-1);"></canvas>
+
+            <!-- No camera placeholder -->
+            <div id="cameraPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-white/60">
+              <i class="fas fa-camera text-5xl mb-3"></i>
+              <p class="text-sm">Camera will start when you begin enrollment</p>
+              <p class="text-xs mt-1">Select a student first, then click "Start Face Enrollment"</p>
+            </div>
+
+            <!-- Enrollment progress overlay -->
+            <div id="enrollOverlay" class="hidden absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div class="text-center">
+                <div id="enrollSpinner" class="w-20 h-20 rounded-full border-4 border-white/30 border-t-white mx-auto mb-4 animate-spin"></div>
+                <p id="enrollStep" class="text-white text-lg font-semibold"></p>
+                <p id="enrollSubStep" class="text-white/60 text-sm mt-1"></p>
+              </div>
+            </div>
+
+            <!-- Success overlay -->
+            <div id="successOverlay" class="hidden absolute inset-0 bg-green-600/90 flex items-center justify-center">
+              <div class="text-center animate-[fadeInUp_0.5s_ease-out]">
+                <div class="w-20 h-20 rounded-full bg-white flex items-center justify-center mx-auto mb-4">
+                  <i class="fas fa-check text-green-600 text-3xl"></i>
+                </div>
+                <p class="text-white text-xl font-bold">Face Enrolled!</p>
+                <p id="successName" class="text-white/80 text-sm mt-1"></p>
+                <p id="successDetail" class="text-white/60 text-xs mt-1"></p>
+              </div>
+            </div>
+
+            <!-- Fail overlay -->
+            <div id="failOverlay" class="hidden absolute inset-0 bg-red-600/90 flex items-center justify-center">
+              <div class="text-center animate-[fadeInUp_0.5s_ease-out]">
+                <div class="w-20 h-20 rounded-full bg-white flex items-center justify-center mx-auto mb-4">
+                  <i class="fas fa-times text-red-600 text-3xl"></i>
+                </div>
+                <p class="text-white text-xl font-bold">Enrollment Failed</p>
+                <p id="failMsg" class="text-white/80 text-sm mt-2 max-w-xs mx-auto"></p>
+                <button onclick="retryEnrollment()" class="mt-4 bg-white text-red-700 px-6 py-2 rounded-full text-sm font-semibold hover:bg-gray-100 transition">
+                  <i class="fas fa-redo mr-2"></i>Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Capture progress -->
+          <div id="captureProgress" class="hidden">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-medium text-gray-600" id="captureLabel">Capturing...</span>
+              <span class="text-xs text-gray-400" id="capturePct">0/3</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div id="captureBar" class="h-2 rounded-full bg-forest-500 transition-all duration-500" style="width:0%"></div>
+            </div>
+          </div>
+
+          <!-- Instructions -->
+          <div id="instructions" class="mt-4 p-4 bg-forest-50 rounded-lg border border-forest-100">
+            <h4 class="text-sm font-semibold text-forest-700 mb-2"><i class="fas fa-lightbulb mr-1"></i>How to Enroll</h4>
+            <ol class="text-xs text-forest-600 space-y-1 list-decimal list-inside">
+              <li>Search and select a student from the left panel</li>
+              <li>Click <strong>"Start Face Enrollment"</strong></li>
+              <li>Face the camera — make sure your face is well-lit</li>
+              <li>The system will automatically detect and capture 3 face samples</li>
+              <li>Once complete, the face data is saved for check-in verification</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- face-api.js -->
+  <script src="/js/face-api.min.js"></script>
+
+  <script>
+    let selectedStudent = null;
+    let allStudents = JSON.parse('{{{students}}}');
+    let videoStream = null;
+    let modelsLoaded = false;
+    let enrolledFaces = [];
+
+    // ====================== MODEL LOADING ======================
+    async function loadModels() {
+      const bar = document.getElementById('modelBar');
+      const pct = document.getElementById('modelPct');
+      const status = document.getElementById('modelStatus');
+
+      try {
+        bar.style.width = '20%'; pct.textContent = '20%';
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+
+        bar.style.width = '50%'; pct.textContent = '50%';
+        await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+
+        bar.style.width = '80%'; pct.textContent = '80%';
+        await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+
+        bar.style.width = '100%'; pct.textContent = '100%';
+        modelsLoaded = true;
+
+        setTimeout(() => {
+          document.getElementById('modelProgress').classList.add('hidden');
+          status.innerHTML = '<i class="fas fa-check-circle text-green-500 mr-1"></i>Models ready';
+        }, 500);
+      } catch (err) {
+        console.error('Model load error:', err);
+        status.innerHTML = '<i class="fas fa-exclamation-circle text-red-500 mr-1"></i>Failed to load models';
+        pct.textContent = 'Error';
+      }
+    }
+
+    // Load models immediately
+    loadModels();
+    loadEnrolledFaces();
+
+    // ====================== STUDENT LIST ======================
+    // Render the full student list on page load
+    renderStudentList(allStudents);
+
+    document.getElementById('studentFilter').addEventListener('input', function() {
+      const q = this.value.trim().toLowerCase();
+      document.getElementById('clearBtn').classList.toggle('hidden', !q);
+      if (!q) {
+        renderStudentList(allStudents);
+        return;
+      }
+      const filtered = allStudents.filter(s =>
+        s.firstName.toLowerCase().includes(q) ||
+        s.lastName.toLowerCase().includes(q) ||
+        s.studentId.toLowerCase().includes(q) ||
+        s.course.toLowerCase().includes(q) ||
+        (s.firstName + ' ' + s.lastName).toLowerCase().includes(q)
+      );
+      renderStudentList(filtered);
+    });
+
+    function clearFilter() {
+      document.getElementById('studentFilter').value = '';
+      document.getElementById('clearBtn').classList.add('hidden');
+      renderStudentList(allStudents);
+    }
+
+    function renderStudentList(students) {
+      const container = document.getElementById('studentList');
+      if (students.length === 0) {
+        container.innerHTML = '<div class="px-4 py-6 text-center text-gray-400 text-sm"><i class="fas fa-search text-xl mb-2 block"></i>No students found</div>';
+        return;
+      }
+      container.innerHTML = students.map(s => {
+        const has = s.faceData ? true : false;
+        const isSelected = selectedStudent && selectedStudent.id === s.id;
+        return '<div class="px-4 py-3 hover:bg-forest-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center space-x-3 transition ' + (isSelected ? 'bg-forest-50 ring-2 ring-forest-400 ring-inset' : '') + '" onclick="selectStudentById(' + s.id + ')">' +
+          '<div class="w-10 h-10 rounded-full ' + (has ? 'bg-green-100 text-green-600' : 'bg-forest-100 text-forest-600') + ' flex items-center justify-center text-sm font-bold flex-shrink-0">' +
+            (has ? '<i class="fas fa-check"></i>' : s.firstName[0] + s.lastName[0]) +
+          '</div>' +
+          '<div class="flex-1 min-w-0">' +
+            '<p class="text-sm font-medium text-gray-800 truncate">' + s.firstName + ' ' + s.lastName + '</p>' +
+            '<p class="text-xs text-gray-500">' + s.studentId + ' • ' + s.course + ' • Year ' + s.yearLevel + '</p>' +
+          '</div>' +
+          (has
+            ? '<span class="text-xs text-green-500 flex-shrink-0"><i class="fas fa-user-check mr-1"></i>Enrolled</span>'
+            : '<span class="text-xs text-orange-400 flex-shrink-0"><i class="fas fa-user-plus mr-1"></i>Not enrolled</span>') +
+        '</div>';
+      }).join('');
+    }
+
+    function selectStudentById(id) {
+      selectedStudent = allStudents.find(s => s.id === id);
+      if (!selectedStudent) return;
+      renderStudentList(allStudents);
+
+      document.getElementById('selectedStudent').classList.remove('hidden');
+      document.getElementById('studentAvatar').textContent = selectedStudent.firstName[0] + selectedStudent.lastName[0];
+      document.getElementById('studentName').textContent = selectedStudent.firstName + ' ' + selectedStudent.lastName;
+      document.getElementById('studentInfo').textContent = selectedStudent.studentId + ' • ' + selectedStudent.course + ' • Year ' + selectedStudent.yearLevel;
+
+      const statusDiv = document.getElementById('studentFaceStatus');
+      statusDiv.innerHTML = selectedStudent.faceData
+        ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"><i class="fas fa-check-circle mr-1"></i>Already enrolled (will re-enroll)</span>'
+        : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700"><i class="fas fa-exclamation-circle mr-1"></i>Not yet enrolled</span>';
+
+      // Hide any previous messages
+      document.getElementById('statusMsg').classList.add('hidden');
+      document.getElementById('successOverlay').classList.add('hidden');
+      document.getElementById('failOverlay').classList.add('hidden');
+    }
+
+    function deselectStudent() {
+      selectedStudent = null;
+      document.getElementById('selectedStudent').classList.add('hidden');
+      stopCamera();
+    }
+
+    // ====================== CAMERA ======================
+    async function startCamera() {
+      try {
+        stopCamera();
+        await new Promise(r => setTimeout(r, 200));
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        const video = document.getElementById('video');
+        video.srcObject = videoStream;
+        await video.play().catch(() => {});
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+          if (video.readyState >= 2) { resolve(); return; }
+          video.addEventListener('loadeddata', () => resolve(), { once: true });
+          setTimeout(resolve, 3000);
+        });
+        document.getElementById('cameraPlaceholder').classList.add('hidden');
+      } catch (err) {
+        console.error('Camera error:', err);
+        showStatus('error', 'Camera access denied. Please allow camera permissions in your browser.');
+      }
+    }
+
+    function stopCamera() {
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+        videoStream = null;
+      }
+      const video = document.getElementById('video');
+      if (video) { video.srcObject = null; }
+      document.getElementById('cameraPlaceholder').classList.remove('hidden');
+    }
+
+    // ====================== ENROLLMENT FLOW ======================
+    async function startEnrollment() {
+      if (!selectedStudent) { showStatus('error', 'Please select a student first.'); return; }
+      if (!modelsLoaded) { showStatus('error', 'Face models are still loading. Please wait...'); return; }
+
+      const btn = document.getElementById('enrollStartBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Starting camera...';
+
+      // Hide previous overlays
+      document.getElementById('successOverlay').classList.add('hidden');
+      document.getElementById('failOverlay').classList.add('hidden');
+      document.getElementById('enrollOverlay').classList.add('hidden');
+      document.getElementById('statusMsg').classList.add('hidden');
+
+      // Start camera
+      await startCamera();
+
+      if (!videoStream) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Start Face Enrollment';
+        return;
+      }
+
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Detecting face...';
+
+      // Show enrollment overlay
+      const overlay = document.getElementById('enrollOverlay');
+      overlay.classList.remove('hidden');
+      document.getElementById('enrollStep').textContent = 'Step 1: Detecting face...';
+      document.getElementById('enrollSubStep').textContent = 'Position your face in front of the camera';
+
+      // ---- STEP 1: Detect face ----
+      let faceDetected = false;
+      for (let attempt = 0; attempt < 30; attempt++) { // 15 seconds max
+        try {
+          const detection = await faceapi.detectSingleFace(
+            document.getElementById('video'),
+            new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
+          );
+          if (detection && detection.score > 0.5) {
+            faceDetected = true;
+            break;
+          }
+        } catch (err) {}
+        document.getElementById('enrollSubStep').textContent = 'Looking for your face... (' + (attempt + 1) + '/30)';
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      if (!faceDetected) {
+        overlay.classList.add('hidden');
+        showFail('Could not detect a face. Make sure your face is well-lit, centered, and clearly visible.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Start Face Enrollment';
+        return;
+      }
+
+      // ---- STEP 2: Capture 3 samples ----
+      document.getElementById('enrollStep').textContent = 'Step 2: Capturing face...';
+      document.getElementById('enrollSubStep').textContent = 'Hold still — taking samples';
+      document.getElementById('enrollSpinner').className = 'w-20 h-20 rounded-full border-4 border-green-300 border-t-green-500 mx-auto mb-4 animate-spin';
+
+      const captureProgress = document.getElementById('captureProgress');
+      captureProgress.classList.remove('hidden');
+
+      const numSamples = 3;
+      const descriptors = [];
+
+      for (let i = 0; i < numSamples; i++) {
+        document.getElementById('captureLabel').textContent = 'Capturing sample ' + (i + 1) + '...';
+        document.getElementById('capturePct').textContent = (i) + '/' + numSamples;
+        document.getElementById('captureBar').style.width = ((i / numSamples) * 100) + '%';
+
+        try {
+          const detection = await faceapi
+            .detectSingleFace(document.getElementById('video'), new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+
+          if (detection) {
+            descriptors.push(Array.from(detection.descriptor));
+          }
+        } catch (err) {
+          console.error('Capture sample error:', err);
+        }
+
+        // Pause between captures
+        if (i < numSamples - 1) await new Promise(r => setTimeout(r, 800));
+      }
+
+      document.getElementById('capturePct').textContent = descriptors.length + '/' + numSamples;
+      document.getElementById('captureBar').style.width = '100%';
+
+      if (descriptors.length === 0) {
+        overlay.classList.add('hidden');
+        captureProgress.classList.add('hidden');
+        showFail('Could not capture face data. Please make sure your face is clearly visible and try again.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Start Face Enrollment';
+        return;
+      }
+
+      // ---- STEP 3: Save ----
+      document.getElementById('enrollStep').textContent = 'Step 3: Saving...';
+      document.getElementById('enrollSubStep').textContent = 'Encrypting and saving face data';
+      document.getElementById('captureLabel').textContent = 'Saving to database...';
+
+      // Average the descriptors
+      const avgDescriptor = new Array(128).fill(0);
+      descriptors.forEach(d => d.forEach((v, idx) => avgDescriptor[idx] += v));
+      avgDescriptor.forEach((v, idx) => avgDescriptor[idx] = v / descriptors.length);
+
+      try {
+        const resp = await fetch('/api/students/' + selectedStudent.id + '/face', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ faceData: JSON.stringify(avgDescriptor) })
+        });
+        const data = await resp.json();
+
+        overlay.classList.add('hidden');
+        captureProgress.classList.add('hidden');
+
+        if (data.success) {
+          // Show success
+          document.getElementById('successName').textContent = selectedStudent.firstName + ' ' + selectedStudent.lastName;
+          document.getElementById('successDetail').textContent = selectedStudent.studentId + ' • ' + descriptors.length + '/' + numSamples + ' samples captured';
+          document.getElementById('successOverlay').classList.remove('hidden');
+
+          showStatus('success', '<i class="fas fa-check-circle mr-1"></i><strong>Face enrolled successfully!</strong> ' + selectedStudent.firstName + ' can now use facial recognition to check in.');
+
+          // Update the face status badge
+          document.getElementById('studentFaceStatus').innerHTML =
+            '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"><i class="fas fa-check-circle mr-1"></i>Enrolled</span>';
+
+          // Update allStudents array so the list reflects the new status
+          const idx = allStudents.findIndex(s => s.id === selectedStudent.id);
+          if (idx !== -1) allStudents[idx].faceData = JSON.stringify(avgDescriptor);
+          selectedStudent.faceData = JSON.stringify(avgDescriptor);
+          renderStudentList(allStudents);
+
+          loadEnrolledFaces();
+
+          // Auto-hide success after 3 seconds
+          setTimeout(() => {
+            document.getElementById('successOverlay').classList.add('hidden');
+          }, 3000);
+        } else {
+          showFail(data.message || 'Failed to save face data.');
+        }
+      } catch (err) {
+        overlay.classList.add('hidden');
+        captureProgress.classList.add('hidden');
+        showFail('Network error. Please check your connection and try again.');
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Start Face Enrollment';
+
+      // Stop camera after enrollment
+      setTimeout(() => stopCamera(), 3500);
+    }
+
+    function retryEnrollment() {
+      document.getElementById('failOverlay').classList.add('hidden');
+      startEnrollment();
+    }
+
+    function showFail(msg) {
+      document.getElementById('failMsg').textContent = msg;
+      document.getElementById('failOverlay').classList.remove('hidden');
+    }
+
+    function showStatus(type, msg) {
+      const el = document.getElementById('statusMsg');
+      el.classList.remove('hidden');
+      el.className = 'mt-3 p-3 rounded-lg text-sm ' +
+        (type === 'success'
+          ? 'bg-green-50 border border-green-200 text-green-700'
+          : 'bg-red-50 border border-red-200 text-red-700');
+      el.innerHTML = msg;
+    }
+
+    // ====================== ENROLLED LIST ======================
+    async function loadEnrolledFaces() {
+      try {
+        const resp = await fetch('/api/students/faces');
+        const data = await resp.json();
+        if (data.success) {
+          enrolledFaces = data.students;
+          document.getElementById('enrolledCount').textContent = enrolledFaces.length + ' face(s) enrolled';
+          document.getElementById('enrolledTotal').textContent = enrolledFaces.length + ' enrolled';
+          renderEnrolledList();
+        }
+      } catch (err) {
+        console.error('Load enrolled error:', err);
+      }
+    }
+
+    function renderEnrolledList() {
+      const container = document.getElementById('enrolledList');
+      if (enrolledFaces.length === 0) {
+        container.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs"><i class="fas fa-user-slash text-2xl mb-2 block"></i>No faces enrolled yet.<br>Select a student and start enrollment.</div>';
+        return;
+      }
+      container.innerHTML = enrolledFaces.map(s =>
+        '<div class="flex items-center space-x-3 p-3 bg-gray-50 hover:bg-forest-50 rounded-lg transition group">' +
+          '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm font-bold flex-shrink-0"><i class="fas fa-user-check"></i></div>' +
+          '<div class="flex-1 min-w-0">' +
+            '<p class="text-sm font-medium text-gray-800 truncate">' + s.firstName + ' ' + s.lastName + '</p>' +
+            '<p class="text-xs text-gray-500">' + s.studentId + ' • ' + s.course + '</p>' +
+          '</div>' +
+          '<button onclick="removeEnrollment(' + s.id + ', \'' + (s.firstName + ' ' + s.lastName).replace(/'/g, "\\'") + '\')" class="opacity-0 group-hover:opacity-100 text-xs text-red-400 hover:text-red-600 transition p-1" title="Remove">' +
+            '<i class="fas fa-trash-alt"></i>' +
+          '</button>' +
+        '</div>'
+      ).join('');
+    }
+
+    async function removeEnrollment(id, name) {
+      if (!confirm('Remove face enrollment for ' + name + '?')) return;
+      try {
+        const resp = await fetch('/api/students/' + id + '/face', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ faceData: null })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showStatus('success', '<i class="fas fa-check-circle mr-1"></i>Face enrollment removed for ' + name);
+          // Update allStudents array
+          const idx = allStudents.findIndex(s => s.id === id);
+          if (idx !== -1) allStudents[idx].faceData = null;
+          if (selectedStudent && selectedStudent.id === id) {
+            selectedStudent.faceData = null;
+            document.getElementById('studentFaceStatus').innerHTML =
+              '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700"><i class="fas fa-exclamation-circle mr-1"></i>Not yet enrolled</span>';
+          }
+          renderStudentList(allStudents);
+          loadEnrolledFaces();
+        }
+      } catch (err) {
+        console.error('Remove error:', err);
+      }
+    }
+  </script>
+</body>
+</html>
