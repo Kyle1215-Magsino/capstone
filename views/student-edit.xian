@@ -17,8 +17,9 @@
     <div class="bg-white rounded-xl shadow-sm border p-8 max-w-2xl" id="formArea"></div>
   </div>
 
+  <script type="application/json" id="__studentData">{{{student}}}</script>
   <script>
-    const student = {{{student}}};
+    const student = JSON.parse(document.getElementById('__studentData').textContent);
     const area = document.getElementById('formArea');
     if (student) {
       const courses = ['BSIT','BSCS','BSIS','BSEd','BSBA','BSA','BSCRIM','BSN','BSHRM','BSAGRI'];

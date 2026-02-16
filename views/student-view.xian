@@ -11,8 +11,9 @@
     <div id="profileArea"></div>
   </div>
 
+  <script type="application/json" id="__studentData">{{{student}}}</script>
   <script>
-    const student = {{{student}}};
+    const student = JSON.parse(document.getElementById('__studentData').textContent);
     const area = document.getElementById('profileArea');
     if (student) {
       const att = student.attendances || [];

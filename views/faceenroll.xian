@@ -113,13 +113,29 @@
               <p class="text-xs mt-1">Select a student first, then click "Start Face Enrollment"</p>
             </div>
 
-            <!-- Enrollment progress overlay -->
-            <div id="enrollOverlay" class="hidden absolute inset-0 bg-black/50 flex items-center justify-center">
-              <div class="text-center">
-                <div id="enrollSpinner" class="w-20 h-20 rounded-full border-4 border-white/30 border-t-white mx-auto mb-4 animate-spin"></div>
-                <p id="enrollStep" class="text-white text-lg font-semibold"></p>
-                <p id="enrollSubStep" class="text-white/60 text-sm mt-1"></p>
+            <!-- GCash-style enrollment overlay -->
+            <div id="enrollOverlay" class="hidden absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-10">
+              <!-- Face guide oval -->
+              <div class="relative mb-5">
+                <div id="enrollFaceGuide" class="w-48 h-60 border-[3px] border-dashed border-white/30 rounded-[50%] transition-all duration-500"></div>
               </div>
+              <!-- Step instruction -->
+              <div class="text-center px-4">
+                <div id="enrollStepIcon" class="text-4xl mb-2 text-white"></div>
+                <p id="enrollStep" class="text-white text-xl font-bold tracking-wide"></p>
+                <p id="enrollSubStep" class="text-white/50 text-sm mt-2 max-w-xs mx-auto"></p>
+              </div>
+              <!-- Step dots -->
+              <div class="flex items-center space-x-4 mt-6">
+                <div id="stepDot0" class="w-3 h-3 rounded-full bg-white/20 transition-all duration-300"></div>
+                <div id="stepDot1" class="w-3 h-3 rounded-full bg-white/20 transition-all duration-300"></div>
+                <div id="stepDot2" class="w-3 h-3 rounded-full bg-white/20 transition-all duration-300"></div>
+                <div id="stepDot3" class="w-3 h-3 rounded-full bg-white/20 transition-all duration-300"></div>
+              </div>
+              <!-- Cancel button -->
+              <button onclick="cancelEnrollment()" class="mt-6 text-white/40 hover:text-white/80 text-xs transition">
+                <i class="fas fa-times mr-1"></i>Cancel
+              </button>
             </div>
 
             <!-- Success overlay -->
@@ -149,11 +165,11 @@
             </div>
           </div>
 
-          <!-- Capture progress -->
+          <!-- Step progress bar -->
           <div id="captureProgress" class="hidden">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-medium text-gray-600" id="captureLabel">Capturing...</span>
-              <span class="text-xs text-gray-400" id="capturePct">0/3</span>
+              <span class="text-xs font-medium text-gray-600" id="captureLabel">Starting...</span>
+              <span class="text-xs text-gray-400" id="capturePct">0/4</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
               <div id="captureBar" class="h-2 rounded-full bg-forest-500 transition-all duration-500" style="width:0%"></div>
@@ -166,9 +182,9 @@
             <ol class="text-xs text-forest-600 space-y-1 list-decimal list-inside">
               <li>Search and select a student from the left panel</li>
               <li>Click <strong>"Start Face Enrollment"</strong></li>
-              <li>Face the camera — make sure your face is well-lit</li>
-              <li>The system will automatically detect and capture 3 face samples</li>
-              <li>Once complete, the face data is saved for check-in verification</li>
+              <li>Follow the on-screen instructions: look straight, turn right, turn left, blink</li>
+              <li>Each step captures a face sample from a different angle</li>
+              <li>Once all steps pass, the face data is saved for check-in verification</li>
             </ol>
           </div>
         </div>
@@ -193,13 +209,13 @@
       const status = document.getElementById('modelStatus');
 
       try {
-        bar.style.width = '20%'; pct.textContent = '20%';
-        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+        bar.style.width = '15%'; pct.textContent = '15%';
+        await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
 
-        bar.style.width = '50%'; pct.textContent = '50%';
+        bar.style.width = '40%'; pct.textContent = '40%';
         await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
 
-        bar.style.width = '80%'; pct.textContent = '80%';
+        bar.style.width = '70%'; pct.textContent = '70%';
         await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
 
         bar.style.width = '100%'; pct.textContent = '100%';
@@ -304,7 +320,7 @@
         stopCamera();
         await new Promise(r => setTimeout(r, 200));
         videoStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
         });
         const video = document.getElementById('video');
         video.srcObject = videoStream;
@@ -332,12 +348,86 @@
       document.getElementById('cameraPlaceholder').classList.remove('hidden');
     }
 
+    // ====================== HEAD POSE & BLINK HELPERS ======================
+    function ptDist(a, b) {
+      return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+    }
+
+    function estimateYaw(pts) {
+      // Jaw outline: pts[0] = image-left (subject's right), pts[16] = image-right (subject's left)
+      // Nose tip: pts[30]
+      var faceW = pts[16].x - pts[0].x;
+      if (faceW < 1) return 0;
+      var center = (pts[0].x + pts[16].x) / 2;
+      return (pts[30].x - center) / (faceW / 2); // negative = user turned right, positive = user turned left
+    }
+
+    function getAvgEAR(pts) {
+      function ear(e) {
+        var A = ptDist(e[1], e[5]);
+        var B = ptDist(e[2], e[4]);
+        var C = ptDist(e[0], e[3]);
+        return (A + B) / (2 * C);
+      }
+      var left = [pts[36], pts[37], pts[38], pts[39], pts[40], pts[41]];
+      var right = [pts[42], pts[43], pts[44], pts[45], pts[46], pts[47]];
+      return (ear(left) + ear(right)) / 2;
+    }
+
+    var enrollCancelled = false;
+
+    var ENROLL_STEPS = [
+      { icon: '<i class="fas fa-arrows-alt"></i>', title: 'Look Straight Ahead', sub: 'Position your face inside the oval', dotColor: 'bg-blue-400', guideColor: 'border-blue-400',
+        check: function(pts) { return Math.abs(estimateYaw(pts)) < 0.12; } },
+      { icon: '<i class="fas fa-arrow-right"></i>', title: 'Turn Your Head Right', sub: 'Slowly turn your head to your right', dotColor: 'bg-yellow-400', guideColor: 'border-yellow-400',
+        check: function(pts) { return estimateYaw(pts) < -0.13; } },
+      { icon: '<i class="fas fa-arrow-left"></i>', title: 'Turn Your Head Left', sub: 'Slowly turn your head to your left', dotColor: 'bg-purple-400', guideColor: 'border-purple-400',
+        check: function(pts) { return estimateYaw(pts) > 0.13; } },
+      { icon: '<i class="fas fa-eye"></i>', title: 'Blink Your Eyes', sub: 'Blink naturally \u2014 we\'ll detect it', dotColor: 'bg-green-400', guideColor: 'border-green-400',
+        check: null }
+    ];
+
+    function setEnrollStepUI(stepIdx, status) {
+      var step = ENROLL_STEPS[stepIdx];
+      var guide = document.getElementById('enrollFaceGuide');
+      document.getElementById('enrollStepIcon').innerHTML = step.icon;
+      document.getElementById('enrollStep').textContent = step.title;
+      document.getElementById('enrollSubStep').textContent = step.sub;
+
+      // Guide oval style
+      guide.className = 'w-48 h-60 border-[3px] rounded-[50%] transition-all duration-500 ';
+      if (status === 'waiting') {
+        guide.classList.add('border-dashed', 'border-white/30');
+      } else if (status === 'active') {
+        guide.classList.add('border-dashed', step.guideColor);
+      } else if (status === 'done') {
+        guide.classList.add('border-solid', 'border-green-400');
+      }
+
+      // Step dots
+      for (var i = 0; i < 4; i++) {
+        var dot = document.getElementById('stepDot' + i);
+        if (i < stepIdx) {
+          dot.className = 'w-3 h-3 rounded-full bg-green-400 transition-all duration-300';
+        } else if (i === stepIdx) {
+          dot.className = 'w-4 h-4 rounded-full animate-pulse transition-all duration-300 ' + step.dotColor;
+        } else {
+          dot.className = 'w-3 h-3 rounded-full bg-white/20 transition-all duration-300';
+        }
+      }
+    }
+
+    function cancelEnrollment() {
+      enrollCancelled = true;
+    }
+
     // ====================== ENROLLMENT FLOW ======================
     async function startEnrollment() {
       if (!selectedStudent) { showStatus('error', 'Please select a student first.'); return; }
       if (!modelsLoaded) { showStatus('error', 'Face models are still loading. Please wait...'); return; }
 
-      const btn = document.getElementById('enrollStartBtn');
+      enrollCancelled = false;
+      var btn = document.getElementById('enrollStartBtn');
       btn.disabled = true;
       btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Starting camera...';
 
@@ -346,139 +436,194 @@
       document.getElementById('failOverlay').classList.add('hidden');
       document.getElementById('enrollOverlay').classList.add('hidden');
       document.getElementById('statusMsg').classList.add('hidden');
+      document.getElementById('captureProgress').classList.add('hidden');
 
       // Start camera
       await startCamera();
-
       if (!videoStream) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Start Face Enrollment';
         return;
       }
 
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Detecting face...';
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Follow the instructions...';
 
       // Show enrollment overlay
-      const overlay = document.getElementById('enrollOverlay');
+      var overlay = document.getElementById('enrollOverlay');
       overlay.classList.remove('hidden');
-      document.getElementById('enrollStep').textContent = 'Step 1: Detecting face...';
-      document.getElementById('enrollSubStep').textContent = 'Position your face in front of the camera';
 
-      // ---- STEP 1: Detect face ----
-      let faceDetected = false;
-      for (let attempt = 0; attempt < 30; attempt++) { // 15 seconds max
-        try {
-          const detection = await faceapi.detectSingleFace(
-            document.getElementById('video'),
-            new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
-          );
-          if (detection && detection.score > 0.5) {
-            faceDetected = true;
-            break;
+      var video = document.getElementById('video');
+      var descriptors = [];
+      var captureProgress = document.getElementById('captureProgress');
+      captureProgress.classList.remove('hidden');
+
+      // ---- Walk through each step ----
+      for (var stepIdx = 0; stepIdx < ENROLL_STEPS.length; stepIdx++) {
+        if (enrollCancelled) break;
+
+        var step = ENROLL_STEPS[stepIdx];
+        setEnrollStepUI(stepIdx, 'waiting');
+
+        document.getElementById('captureLabel').textContent = 'Step ' + (stepIdx + 1) + ' of 4';
+        document.getElementById('capturePct').textContent = stepIdx + '/4';
+        document.getElementById('captureBar').style.width = ((stepIdx / 4) * 100) + '%';
+
+        var stepDone = false;
+        var blinkCount = 0;
+        var eyeWasOpen = true;
+
+        // Each step has 15 seconds to complete (60 × 250ms)
+        for (var attempt = 0; attempt < 60; attempt++) {
+          if (enrollCancelled) break;
+
+          try {
+            var detection = await faceapi
+              .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+              .withFaceLandmarks()
+              .withFaceDescriptor();
+
+            if (!detection) {
+              setEnrollStepUI(stepIdx, 'waiting');
+              document.getElementById('enrollSubStep').textContent = 'No face detected — move into the oval';
+              await new Promise(function(r) { setTimeout(r, 250); });
+              continue;
+            }
+
+            var pts = detection.landmarks.positions;
+
+            if (stepIdx < 3) {
+              // ---- Head pose steps (center / right / left) ----
+              if (step.check(pts)) {
+                setEnrollStepUI(stepIdx, 'active');
+                document.getElementById('enrollSubStep').textContent = 'Hold still...';
+
+                // Confirm by re-detecting after a short hold
+                await new Promise(function(r) { setTimeout(r, 400); });
+                var confirm = await faceapi
+                  .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+                  .withFaceLandmarks()
+                  .withFaceDescriptor();
+
+                if (confirm && step.check(confirm.landmarks.positions)) {
+                  descriptors.push(Array.from(confirm.descriptor));
+                  setEnrollStepUI(stepIdx, 'done');
+                  stepDone = true;
+                  document.getElementById('enrollStep').textContent = '\u2713 ' + step.title;
+                  document.getElementById('enrollSubStep').textContent = 'Captured!';
+                  await new Promise(function(r) { setTimeout(r, 700); });
+                  break;
+                }
+              } else {
+                setEnrollStepUI(stepIdx, 'waiting');
+              }
+            } else {
+              // ---- Blink step ----
+              var ear = getAvgEAR(pts);
+              setEnrollStepUI(stepIdx, 'active');
+
+              if (ear > 0.25) {
+                eyeWasOpen = true;
+              }
+              if (eyeWasOpen && ear < 0.21) {
+                blinkCount++;
+                eyeWasOpen = false;
+                document.getElementById('enrollSubStep').textContent = 'Blink detected! (' + blinkCount + '/2)';
+
+                if (blinkCount >= 2) {
+                  // Liveness confirmed — capture one final center descriptor
+                  await new Promise(function(r) { setTimeout(r, 400); });
+                  var blinkDet = await faceapi
+                    .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+                  if (blinkDet) descriptors.push(Array.from(blinkDet.descriptor));
+
+                  setEnrollStepUI(stepIdx, 'done');
+                  stepDone = true;
+                  document.getElementById('enrollStep').textContent = '\u2713 Blink Verified';
+                  document.getElementById('enrollSubStep').textContent = 'Liveness confirmed!';
+                  await new Promise(function(r) { setTimeout(r, 700); });
+                  break;
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Enrollment step error:', err);
           }
-        } catch (err) {}
-        document.getElementById('enrollSubStep').textContent = 'Looking for your face... (' + (attempt + 1) + '/30)';
-        await new Promise(r => setTimeout(r, 500));
+
+          await new Promise(function(r) { setTimeout(r, 250); });
+        }
+
+        if (!stepDone && !enrollCancelled) {
+          overlay.classList.add('hidden');
+          captureProgress.classList.add('hidden');
+          showFail('Timed out on: "' + step.title + '". Make sure your face is well-lit and clearly visible, then try again.');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Start Face Enrollment';
+          return;
+        }
       }
 
-      if (!faceDetected) {
+      // ---- Cancelled? ----
+      if (enrollCancelled) {
         overlay.classList.add('hidden');
-        showFail('Could not detect a face. Make sure your face is well-lit, centered, and clearly visible.');
+        captureProgress.classList.add('hidden');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Start Face Enrollment';
+        stopCamera();
         return;
       }
 
-      // ---- STEP 2: Capture 3 samples ----
-      document.getElementById('enrollStep').textContent = 'Step 2: Capturing face...';
-      document.getElementById('enrollSubStep').textContent = 'Hold still — taking samples';
-      document.getElementById('enrollSpinner').className = 'w-20 h-20 rounded-full border-4 border-green-300 border-t-green-500 mx-auto mb-4 animate-spin';
-
-      const captureProgress = document.getElementById('captureProgress');
-      captureProgress.classList.remove('hidden');
-
-      const numSamples = 3;
-      const descriptors = [];
-
-      for (let i = 0; i < numSamples; i++) {
-        document.getElementById('captureLabel').textContent = 'Capturing sample ' + (i + 1) + '...';
-        document.getElementById('capturePct').textContent = (i) + '/' + numSamples;
-        document.getElementById('captureBar').style.width = ((i / numSamples) * 100) + '%';
-
-        try {
-          const detection = await faceapi
-            .detectSingleFace(document.getElementById('video'), new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
-            .withFaceLandmarks()
-            .withFaceDescriptor();
-
-          if (detection) {
-            descriptors.push(Array.from(detection.descriptor));
-          }
-        } catch (err) {
-          console.error('Capture sample error:', err);
-        }
-
-        // Pause between captures
-        if (i < numSamples - 1) await new Promise(r => setTimeout(r, 800));
-      }
-
-      document.getElementById('capturePct').textContent = descriptors.length + '/' + numSamples;
+      // ---- All 4 steps done — save ----
       document.getElementById('captureBar').style.width = '100%';
+      document.getElementById('capturePct').textContent = '4/4';
+      document.getElementById('captureLabel').textContent = 'Saving face data...';
+      document.getElementById('enrollStepIcon').innerHTML = '<i class="fas fa-save"></i>';
+      document.getElementById('enrollStep').textContent = 'Saving Face Data...';
+      document.getElementById('enrollSubStep').textContent = 'Encrypting and saving to database';
 
       if (descriptors.length === 0) {
         overlay.classList.add('hidden');
         captureProgress.classList.add('hidden');
-        showFail('Could not capture face data. Please make sure your face is clearly visible and try again.');
+        showFail('Could not capture any face data. Please try again.');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Start Face Enrollment';
         return;
       }
 
-      // ---- STEP 3: Save ----
-      document.getElementById('enrollStep').textContent = 'Step 3: Saving...';
-      document.getElementById('enrollSubStep').textContent = 'Encrypting and saving face data';
-      document.getElementById('captureLabel').textContent = 'Saving to database...';
-
-      // Average the descriptors
-      const avgDescriptor = new Array(128).fill(0);
-      descriptors.forEach(d => d.forEach((v, idx) => avgDescriptor[idx] += v));
-      avgDescriptor.forEach((v, idx) => avgDescriptor[idx] = v / descriptors.length);
+      // Average all captured descriptors
+      var avgDescriptor = new Array(128).fill(0);
+      descriptors.forEach(function(d) { d.forEach(function(v, idx) { avgDescriptor[idx] += v; }); });
+      avgDescriptor.forEach(function(v, idx) { avgDescriptor[idx] = v / descriptors.length; });
 
       try {
-        const resp = await fetch('/api/students/' + selectedStudent.id + '/face', {
+        var resp = await fetch('/api/students/' + selectedStudent.id + '/face', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ faceData: JSON.stringify(avgDescriptor) })
         });
-        const data = await resp.json();
+        var data = await resp.json();
 
         overlay.classList.add('hidden');
         captureProgress.classList.add('hidden');
 
         if (data.success) {
-          // Show success
           document.getElementById('successName').textContent = selectedStudent.firstName + ' ' + selectedStudent.lastName;
-          document.getElementById('successDetail').textContent = selectedStudent.studentId + ' • ' + descriptors.length + '/' + numSamples + ' samples captured';
+          document.getElementById('successDetail').textContent = selectedStudent.studentId + ' \u2022 ' + descriptors.length + ' samples from 4 poses';
           document.getElementById('successOverlay').classList.remove('hidden');
 
           showStatus('success', '<i class="fas fa-check-circle mr-1"></i><strong>Face enrolled successfully!</strong> ' + selectedStudent.firstName + ' can now use facial recognition to check in.');
 
-          // Update the face status badge
           document.getElementById('studentFaceStatus').innerHTML =
             '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"><i class="fas fa-check-circle mr-1"></i>Enrolled</span>';
 
-          // Update allStudents array so the list reflects the new status
-          const idx = allStudents.findIndex(s => s.id === selectedStudent.id);
+          var idx = allStudents.findIndex(function(s) { return s.id === selectedStudent.id; });
           if (idx !== -1) allStudents[idx].faceData = JSON.stringify(avgDescriptor);
           selectedStudent.faceData = JSON.stringify(avgDescriptor);
           renderStudentList(allStudents);
-
           loadEnrolledFaces();
 
-          // Auto-hide success after 3 seconds
-          setTimeout(() => {
-            document.getElementById('successOverlay').classList.add('hidden');
-          }, 3000);
+          setTimeout(function() { document.getElementById('successOverlay').classList.add('hidden'); }, 3000);
         } else {
           showFail(data.message || 'Failed to save face data.');
         }
@@ -490,9 +635,7 @@
 
       btn.disabled = false;
       btn.innerHTML = '<i class="fas fa-camera mr-2"></i>Start Face Enrollment';
-
-      // Stop camera after enrollment
-      setTimeout(() => stopCamera(), 3500);
+      setTimeout(function() { stopCamera(); }, 3500);
     }
 
     function retryEnrollment() {

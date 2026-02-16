@@ -48,8 +48,9 @@
 
   </div>
 
+  <script type="application/json" id="__studentsData">{{{students}}}</script>
   <script>
-    const students = {{{students}}};
+    const students = JSON.parse(document.getElementById('__studentsData').textContent);
     const tbody = document.getElementById('studentsTable');
     if (students && students.length) {
       students.forEach(s => {

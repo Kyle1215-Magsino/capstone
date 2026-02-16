@@ -77,12 +77,17 @@
     </div>
   </div>
 
+  <script type="application/json" id="__monthlyTrendData">{{{monthlyTrend}}}</script>
+  <script type="application/json" id="__byCourseData">{{{byCourse}}}</script>
+  <script type="application/json" id="__eventSummaryData">{{{eventSummary}}}</script>
+  <script type="application/json" id="__presentCount">{{ presentCount }}</script>
+  <script type="application/json" id="__lateCount">{{ lateCount }}</script>
   <script>
-    const monthlyTrend = {{{monthlyTrend}}};
-    const byCourse = {{{byCourse}}};
-    const eventSummary = {{{eventSummary}}};
-    const presentCount = {{ presentCount }};
-    const lateCount = {{ lateCount }};
+    const monthlyTrend = JSON.parse(document.getElementById('__monthlyTrendData').textContent);
+    const byCourse = JSON.parse(document.getElementById('__byCourseData').textContent);
+    const eventSummary = JSON.parse(document.getElementById('__eventSummaryData').textContent);
+    const presentCount = JSON.parse(document.getElementById('__presentCount').textContent);
+    const lateCount = JSON.parse(document.getElementById('__lateCount').textContent);
 
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 

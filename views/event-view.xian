@@ -41,8 +41,9 @@
     </div>
   </div>
 
+  <script type="application/json" id="__eventData">{{{event}}}</script>
   <script>
-    const event = {{{event}}};
+    const event = JSON.parse(document.getElementById('__eventData').textContent);
     const area = document.getElementById('eventArea');
     document.getElementById('eventTitle').textContent = event.eventName;
 

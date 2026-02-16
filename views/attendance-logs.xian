@@ -33,8 +33,9 @@
     </div>
   </div>
 
+  <script type="application/json" id="__logsData">{{{logs}}}</script>
   <script>
-    const logs = {{{logs}}};
+    const logs = JSON.parse(document.getElementById('__logsData').textContent);
     const tbody = document.getElementById('logsTable');
     if (logs && logs.length) {
       logs.forEach((l, i) => {

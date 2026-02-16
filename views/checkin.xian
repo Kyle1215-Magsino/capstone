@@ -290,8 +290,8 @@
       <!-- Left: Camera -->
       <div class="flex-1 flex flex-col p-6">
         <div class="flex-1 relative rounded-2xl overflow-hidden bg-black shadow-2xl">
-          <video id="fsVideo" autoplay muted playsinline class="w-full h-full object-cover"></video>
-          <canvas id="fsOverlay" class="absolute top-0 left-0 w-full h-full"></canvas>
+          <video id="fsVideo" autoplay muted playsinline class="w-full h-full object-cover" style="transform: scaleX(-1);"></video>
+          <canvas id="fsOverlay" class="absolute top-0 left-0 w-full h-full" style="transform: scaleX(-1);"></canvas>
 
           <!-- Face guide oval -->
           <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -398,9 +398,11 @@
   <!-- face-api.js -->
   <script src="/js/face-api.min.js"></script>
 
+  <script type="application/json" id="__eventsData">{{{events}}}</script>
+
   <script>
     // ====================== STATE ======================
-    const events = {{{events}}};
+    const events = JSON.parse(document.getElementById('__eventsData').textContent);
     let currentMethod = 'rfid';
     let currentLat = null;
     let currentLng = null;
@@ -630,7 +632,7 @@
       try {
         stopCamera();
         await new Promise(function(r){ setTimeout(r, 200); });
-        var constraints = { video: { facingMode: facingMode, width: { ideal: 640 }, height: { ideal: 480 } } };
+        var constraints = { video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } } };
         videoStream = await navigator.mediaDevices.getUserMedia(constraints);
         var videoEl = document.getElementById('video');
         videoEl.srcObject = videoStream;
@@ -683,11 +685,11 @@
       progress.classList.remove('hidden');
 
       try {
-        bar.style.width = '20%'; pct.textContent = '20%';
-        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-        bar.style.width = '50%'; pct.textContent = '50%';
+        bar.style.width = '15%'; pct.textContent = '15%';
+        await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
+        bar.style.width = '40%'; pct.textContent = '40%';
         await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
-        bar.style.width = '80%'; pct.textContent = '80%';
+        bar.style.width = '70%'; pct.textContent = '70%';
         await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
         bar.style.width = '100%'; pct.textContent = '100%';
 
@@ -744,10 +746,16 @@
       matchOv.classList.add('hidden');
 
       try {
-        var detection = await faceapi
-          .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+        // Try detection up to 3 times for reliability
+        var detection = null;
+        for (var attempt = 0; attempt < 3; attempt++) {
+          detection = await faceapi
+            .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+          if (detection) break;
+          await new Promise(function(r){ setTimeout(r, 300); });
+        }
 
         var ctx = overlay.getContext('2d');
         overlay.width = video.videoWidth;
@@ -757,6 +765,17 @@
         if (!detection) {
           setCameraStatus('red', 'No face detected');
           showToast('error', 'No Face Detected', 'Position your face clearly in front of the camera and try again.');
+          captureBtn.disabled = false;
+          captureBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture & Match';
+          return;
+        }
+
+        // Quality check: face must be large enough for reliable recognition
+        var faceArea = detection.detection.box.width * detection.detection.box.height;
+        var frameArea = video.videoWidth * video.videoHeight;
+        if (faceArea / frameArea < 0.01) {
+          setCameraStatus('red', 'Face too far away');
+          showToast('error', 'Face Too Small', 'Move closer to the camera for accurate recognition.');
           captureBtn.disabled = false;
           captureBtn.innerHTML = '<i class="fas fa-camera mr-2"></i>Capture & Match';
           return;
@@ -798,7 +817,7 @@
           }
         });
 
-        var threshold = 0.55;
+        var threshold = 0.45;
         if (bestMatch && bestDistance < threshold) {
           var confidence = ((1 - bestDistance) * 100).toFixed(1);
           matchedStudentId = bestMatch.studentId;
@@ -1079,10 +1098,16 @@
       guide.style.borderStyle = 'solid';
 
       try {
-        var detection = await faceapi
-          .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+        // Try detection up to 3 times for reliability
+        var detection = null;
+        for (var attempt = 0; attempt < 3; attempt++) {
+          detection = await faceapi
+            .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+          if (detection) break;
+          await new Promise(function(r){ setTimeout(r, 300); });
+        }
 
         var ctx = overlay.getContext('2d');
         overlay.width = video.videoWidth;
@@ -1095,6 +1120,21 @@
           guide.classList.add('border-red-400');
           guide.style.borderStyle = 'dashed';
           showToast('error', 'No Face Detected', 'Position the face inside the oval guide.');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-camera mr-2 text-lg"></i>Capture & Match';
+          setTimeout(function(){ guide.classList.remove('border-red-400'); guide.classList.add('border-white/20'); }, 2000);
+          return;
+        }
+
+        // Quality check: face must be large enough
+        var faceArea = detection.detection.box.width * detection.detection.box.height;
+        var frameArea = video.videoWidth * video.videoHeight;
+        if (faceArea / frameArea < 0.01) {
+          fsCamStatus('red', 'Face too far away');
+          guide.classList.remove('border-yellow-400');
+          guide.classList.add('border-red-400');
+          guide.style.borderStyle = 'dashed';
+          showToast('error', 'Face Too Small', 'Move closer to the camera for accurate recognition.');
           btn.disabled = false;
           btn.innerHTML = '<i class="fas fa-camera mr-2 text-lg"></i>Capture & Match';
           setTimeout(function(){ guide.classList.remove('border-red-400'); guide.classList.add('border-white/20'); }, 2000);
@@ -1135,7 +1175,7 @@
           if (distance < bestDistance) { bestDistance = distance; bestMatch = face; }
         });
 
-        var threshold = 0.55;
+        var threshold = 0.45;
         if (bestMatch && bestDistance < threshold) {
           var confidence = ((1 - bestDistance) * 100).toFixed(1);
 

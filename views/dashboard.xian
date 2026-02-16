@@ -143,13 +143,18 @@
     </div>
   </div>
 
+  <script type="application/json" id="__chartLabels">{{{chartLabels}}}</script>
+  <script type="application/json" id="__chartValues">{{{chartValues}}}</script>
+  <script type="application/json" id="__chartLateValues">{{{chartLateValues}}}</script>
+  <script type="application/json" id="__dailyLabels">{{{dailyLabels}}}</script>
+  <script type="application/json" id="__dailyValues">{{{dailyValues}}}</script>
   <script>
     // ===== Chart Data =====
-    const labels = {{{chartLabels}}};
-    const values = {{{chartValues}}};
-    const lateValues = {{{chartLateValues}}};
-    const dLabels = {{{dailyLabels}}};
-    const dValues = {{{dailyValues}}};
+    const labels = JSON.parse(document.getElementById('__chartLabels').textContent);
+    const values = JSON.parse(document.getElementById('__chartValues').textContent);
+    const lateValues = JSON.parse(document.getElementById('__chartLateValues').textContent);
+    const dLabels = JSON.parse(document.getElementById('__dailyLabels').textContent);
+    const dValues = JSON.parse(document.getElementById('__dailyValues').textContent);
 
     // Compute on-time = total - late
     const onTimeValues = values.map((v, i) => Math.max(0, v - (lateValues[i] || 0)));
@@ -295,7 +300,7 @@
     }
 
     // Recent attendance table
-    const recent = {{{recentAttendance}}};
+    const recent = JSON.parse(document.getElementById('__recentAttendance').textContent);
     const tbody = document.getElementById('recentTable');
     if (recent && recent.length) {
       recent.forEach(r => {

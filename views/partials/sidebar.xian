@@ -57,7 +57,7 @@
           <p class="text-xs text-leaf-400">USG Officer</p>
         </div>
       </div>
-      <a href="/logout" class="text-leaf-400 hover:text-red-400 transition-all duration-300 hover:scale-110" title="Logout">
+      <a href="#" onclick="if(confirm('Are you sure you want to log out?')) window.location.href='/logout'; return false;" class="text-leaf-400 hover:text-red-400 transition-all duration-300 hover:scale-110" title="Logout">
         <i class="fas fa-sign-out-alt"></i>
       </a>
     </div>

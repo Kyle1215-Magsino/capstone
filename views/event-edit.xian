@@ -17,8 +17,9 @@
     <div class="bg-white rounded-xl shadow-sm border p-8 max-w-2xl" id="formArea"></div>
   </div>
 
+  <script type="application/json" id="__eventData">{{{event}}}</script>
   <script>
-    const event = {{{event}}};
+    const event = JSON.parse(document.getElementById('__eventData').textContent);
     const area = document.getElementById('formArea');
     if (event) {
       const statuses = ['upcoming','ongoing','completed','cancelled'];

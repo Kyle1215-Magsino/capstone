@@ -49,8 +49,11 @@
     <div class="flex items-center justify-between mt-6" id="pagination"></div>
   </div>
 
+  <script type="application/json" id="__eventsData">{{{events}}}</script>
+  <script type="application/json" id="__currentPage">{{ currentPage }}</script>
+  <script type="application/json" id="__totalPages">{{ totalPages }}</script>
   <script>
-    const events = {{{events}}};
+    const events = JSON.parse(document.getElementById('__eventsData').textContent);
     const grid = document.getElementById('eventsGrid');
     const statusColors = {
       upcoming: 'bg-forest-100 text-forest-600',
@@ -100,8 +103,8 @@
       grid.innerHTML = '<div class="col-span-3 text-center py-12 text-gray-400"><i class="fas fa-calendar-alt text-5xl mb-4 block"></i><p>No events found.</p><button onclick="openAddEventModal()" class="text-forest-400 text-sm mt-2 inline-block hover:underline">Create your first event →</button></div>';
     }
 
-    const currentPage = {{ currentPage }};
-    const totalPages = {{ totalPages }};
+    const currentPage = JSON.parse(document.getElementById('__currentPage').textContent);
+    const totalPages = JSON.parse(document.getElementById('__totalPages').textContent);
     const pgDiv = document.getElementById('pagination');
     if (totalPages > 1) {
       let html = '<div class="flex space-x-2">';
