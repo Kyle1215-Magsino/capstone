@@ -71,6 +71,7 @@
         <div class="hidden lg:flex items-center justify-center animate-fadeInUp delay-200">
           <div class="relative">
             <img src="/usg-logo.png" alt="Mindoro State University - USG" class="w-96 h-96 object-contain rounded-full shadow-2xl shadow-forest-400/20 hover:scale-105 transition-transform duration-500" />
+            <div class="absolute inset-0 rounded-full bg-green-600/15 pointer-events-none"></div>
           </div>
         </div>
       </div>
@@ -374,14 +375,14 @@
             <label class="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-leaf-400"><i class="fas fa-envelope"></i></span>
-              <input type="email" name="email" placeholder="you@minsu.edu.ph" class="input-field pl-12" required />
+              <input type="email" name="email" placeholder="you@minsu.edu.ph" class="input-field" style="padding-left:3rem" required />
             </div>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-leaf-400"><i class="fas fa-lock"></i></span>
-              <input type="password" name="password" placeholder="••••••••" class="input-field pl-12" required />
+              <input type="password" name="password" placeholder="••••••••" class="input-field" style="padding-left:3rem" required />
             </div>
           </div>
           <div class="flex items-center justify-between text-sm">
@@ -417,48 +418,45 @@
           <i class="fas fa-times text-sm"></i>
         </button>
         <!-- Header -->
-        <div class="bg-gradient-to-r from-leaf-400 to-forest-500 px-8 pt-8 pb-6 text-center">
+        <div class="bg-gradient-to-r from-forest-400 to-dark-800 px-8 pt-8 pb-6 text-center">
           <div class="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <i class="fas fa-user-plus text-white text-2xl"></i>
+            <i class="fas fa-user-graduate text-brand-100 text-2xl"></i>
           </div>
-          <h3 class="text-xl font-bold text-white">Create Account</h3>
-          <p class="text-leaf-100/80 text-sm mt-1">Set up your USG officer account</p>
+          <h3 class="text-xl font-bold text-white">Student Registration</h3>
+          <p class="text-leaf-200/80 text-sm mt-1">Link your Student ID to create an account</p>
         </div>
-        <!-- Form -->
-        <form id="registerForm" class="px-8 py-6 space-y-4" method="POST" action="/register">
-          <div id="registerAlert" class="hidden px-4 py-3 rounded-lg text-sm"></div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
-            <div class="relative">
-              <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-leaf-400"><i class="fas fa-user"></i></span>
-              <input type="text" name="name" placeholder="Juan Dela Cruz" class="input-field pl-12" required />
-            </div>
+
+        <!-- Student Register Form -->
+        <form id="studentRegForm" class="px-8 py-6 space-y-4" method="POST" action="/register-student">
+          <div id="studentRegAlert" class="hidden px-4 py-3 rounded-lg text-sm"></div>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-700">
+            <i class="fas fa-info-circle mr-1"></i>You must be registered by a USG officer first. Enter the Student ID from your record.
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Student ID</label>
             <div class="relative">
-              <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-leaf-400"><i class="fas fa-envelope"></i></span>
-              <input type="email" name="email" placeholder="you@minsu.edu.ph" class="input-field pl-12" required />
+              <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-forest-400"><i class="fas fa-id-card"></i></span>
+              <input type="text" name="studentId" placeholder="e.g. 2024-0001" class="input-field" style="padding-left:3rem" required />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
               <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-leaf-400"><i class="fas fa-lock"></i></span>
-                <input type="password" name="password" placeholder="••••••••" class="input-field pl-12" required />
+                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-forest-400"><i class="fas fa-lock"></i></span>
+                <input type="password" name="password" placeholder="••••••••" class="input-field" style="padding-left:3rem" required />
               </div>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Confirm</label>
               <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-leaf-400"><i class="fas fa-lock"></i></span>
-                <input type="password" name="confirmPassword" placeholder="••••••••" class="input-field pl-12" required />
+                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-forest-400"><i class="fas fa-lock"></i></span>
+                <input type="password" name="confirmPassword" placeholder="••••••••" class="input-field" style="padding-left:3rem" required />
               </div>
             </div>
           </div>
-          <button type="submit" class="w-full btn-leaf py-3 text-sm cursor-pointer">
-            <i class="fas fa-user-plus mr-2"></i>Create Account
+          <button type="submit" class="w-full btn-forest py-3 text-sm cursor-pointer">
+            <i class="fas fa-user-graduate mr-2"></i>Create Student Account
           </button>
         </form>
         <!-- Footer -->
@@ -470,6 +468,8 @@
       </div>
     </div>
   </div>
+
+
 
   <!-- Navbar scroll effect -->
   <script>
@@ -588,13 +588,14 @@
       }
     });
 
-    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    // ===== STUDENT REGISTER (AJAX) =====
+    document.getElementById('studentRegForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
       const formData = Object.fromEntries(new FormData(form));
 
       if (formData.password !== formData.confirmPassword) {
-        showAlert('registerAlert', 'error', 'Passwords do not match.');
+        showAlert('studentRegAlert', 'error', 'Passwords do not match.');
         return;
       }
 
@@ -604,22 +605,22 @@
       btn.disabled = true;
 
       try {
-        const resp = await fetch('/register', {
+        const resp = await fetch('/register-student', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
           body: JSON.stringify(formData)
         });
         const data = await resp.json();
         if (data.success) {
-          showAlert('registerAlert', 'success', data.message || 'Account created! Redirecting...');
-          setTimeout(() => window.location.href = data.redirect || '/dashboard', 800);
+          showAlert('studentRegAlert', 'success', data.message || 'Account created! Redirecting...');
+          setTimeout(() => window.location.href = data.redirect || '/student-dashboard', 800);
         } else {
-          showAlert('registerAlert', 'error', data.message || 'Registration failed.');
+          showAlert('studentRegAlert', 'error', data.message || 'Registration failed.');
           btn.innerHTML = origText;
           btn.disabled = false;
         }
       } catch (err) {
-        showAlert('registerAlert', 'error', 'Connection error. Please try again.');
+        showAlert('studentRegAlert', 'error', 'Connection error. Please try again.');
         btn.innerHTML = origText;
         btn.disabled = false;
       }

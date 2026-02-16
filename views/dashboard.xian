@@ -3,7 +3,7 @@
   {{> sidebar}}
 
   <!-- Main Content -->
-  <div class="ml-64 p-6">
+  <div class="ml-64 px-6 pb-6 pt-20">
     <!-- Top Bar -->
     <div class="flex items-center justify-between mb-8">
       <div>
@@ -143,6 +143,7 @@
     </div>
   </div>
 
+  <script type="application/json" id="__recentAttendance">{{{recentAttendance}}}</script>
   <script type="application/json" id="__chartLabels">{{{chartLabels}}}</script>
   <script type="application/json" id="__chartValues">{{{chartValues}}}</script>
   <script type="application/json" id="__chartLateValues">{{{chartLateValues}}}</script>

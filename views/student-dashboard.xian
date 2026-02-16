@@ -1,0 +1,150 @@
+{{> head}}
+<body class="bg-leaf-50 min-h-screen">
+  {{> student-sidebar}}
+
+  <!-- Main Content -->
+  <div class="ml-64 px-6 pb-6 pt-20">
+    <!-- Top Bar -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">My Dashboard</h1>
+        <p class="text-sm text-gray-500">Welcome, {{ userName }}! Here's your attendance overview.</p>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-forest-100 text-forest-600">
+          <i class="fas fa-id-card mr-1.5"></i>{{ studentId }}
+        </span>
+        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-leaf-100 text-leaf-600">
+          {{ course }} &bull; Year {{ yearLevel }}
+        </span>
+      </div>
+    </div>
+
+    {{#if success_msg.length}}
+    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm">
+      <i class="fas fa-check-circle mr-2"></i>{{success_msg}}
+    </div>
+    {{/if}}
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="bg-white rounded-xl p-6 shadow-sm border card hover-lift animate-fadeInUp">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500 font-medium">Present</p>
+            <p class="text-3xl font-bold text-green-600 mt-1">{{ totalPresent }}</p>
+          </div>
+          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+            <i class="fas fa-check-circle text-green-500 text-xl"></i>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">On-time check-ins</p>
+      </div>
+      <div class="bg-white rounded-xl p-6 shadow-sm border card hover-lift animate-fadeInUp" style="animation-delay:0.1s">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500 font-medium">Late</p>
+            <p class="text-3xl font-bold text-orange-500 mt-1">{{ totalLate }}</p>
+          </div>
+          <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+            <i class="fas fa-clock text-orange-500 text-xl"></i>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">Late check-ins</p>
+      </div>
+      <div class="bg-white rounded-xl p-6 shadow-sm border card hover-lift animate-fadeInUp" style="animation-delay:0.2s">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500 font-medium">Events Attended</p>
+            <p class="text-3xl font-bold text-forest-500 mt-1">{{ attendedEvents }}</p>
+          </div>
+          <div class="w-12 h-12 bg-forest-100 rounded-lg flex items-center justify-center">
+            <i class="fas fa-calendar-check text-forest-500 text-xl"></i>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">Out of {{ totalEvents }} total events</p>
+      </div>
+      <div class="bg-white rounded-xl p-6 shadow-sm border card hover-lift animate-fadeInUp" style="animation-delay:0.3s">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500 font-medium">Attendance Rate</p>
+            <p class="text-3xl font-bold text-brand-300 mt-1" id="attendanceRate">0%</p>
+          </div>
+          <div class="w-12 h-12 bg-brand-50 rounded-lg flex items-center justify-center">
+            <i class="fas fa-chart-pie text-brand-300 text-xl"></i>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">Overall attendance rate</p>
+      </div>
+    </div>
+
+    <!-- Chart + Upcoming Events -->
+    <div class="mb-8">
+      <!-- Attendance Chart -->
+      <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-chart-bar text-forest-400 mr-2"></i>My Attendance Trend</h2>
+        </div>
+        <div class="h-64">
+          <canvas id="attendanceChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JSON data containers -->
+  <script type="application/json" id="__chartLabels">{{{chartLabels}}}</script>
+  <script type="application/json" id="__chartPresent">{{{chartPresent}}}</script>
+  <script type="application/json" id="__chartLate">{{{chartLate}}}</script>
+
+  <script>
+    var chartLabels = JSON.parse(document.getElementById('__chartLabels').textContent);
+    var chartPresent = JSON.parse(document.getElementById('__chartPresent').textContent);
+    var chartLate = JSON.parse(document.getElementById('__chartLate').textContent);
+
+    // Attendance rate
+    var totalEvents = {{ totalEvents }};
+    var attended = {{ attendedEvents }};
+    var rate = totalEvents > 0 ? ((attended / totalEvents) * 100).toFixed(0) : 0;
+    document.getElementById('attendanceRate').textContent = rate + '%';
+
+    // ====================== CHART ======================
+    var ctx = document.getElementById('attendanceChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: chartLabels,
+        datasets: [
+          {
+            label: 'Present',
+            data: chartPresent,
+            backgroundColor: 'rgba(76, 118, 59, 0.8)',
+            borderRadius: 6,
+            borderSkipped: false
+          },
+          {
+            label: 'Late',
+            data: chartLate,
+            backgroundColor: 'rgba(249, 115, 22, 0.7)',
+            borderRadius: 6,
+            borderSkipped: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20, font: { size: 12 } } }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+          x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
+  </script>
+
+  {{> footer}}
+</body>
+</html>

@@ -200,9 +200,12 @@ export const loginUser = async (req, res) => {
     req.session.userId = user.id;
     req.session.userName = user.name;
     req.session.userRole = user.role;
-    if (isAjax) return res.json({ success: true, message: "Welcome back, " + user.name + "!", redirect: "/dashboard" });
+    if (user.role === 'student') req.session.studentRecordId = user.studentRecordId;
+    
+    var redirectUrl = user.role === 'student' ? '/student-dashboard' : '/dashboard';
+    if (isAjax) return res.json({ success: true, message: "Welcome back, " + user.name + "!", redirect: redirectUrl });
     req.flash("success_msg", "Welcome back, " + user.name + "!");
-    res.redirect("/dashboard");
+    res.redirect(redirectUrl);
   } catch (err) {
     console.error("Login error:", err);
     if (isAjax) return res.json({ success: false, message: "Login failed. Try again." });
@@ -245,4 +248,192 @@ export const registerUser = async (req, res) => {
 export const logoutUser = (req, res) => {
   req.session.destroy();
   res.redirect("/");
+};
+
+// ====================== STUDENT ROLE ======================
+
+export const registerStudentUser = async (req, res) => {
+  const { studentId, password, confirmPassword } = req.body;
+  const isAjax = req.headers['x-requested-with'] === 'XMLHttpRequest';
+
+  if (password !== confirmPassword) {
+    if (isAjax) return res.json({ success: false, message: "Passwords do not match." });
+    req.flash("error_msg", "Passwords do not match.");
+    return res.redirect("/");
+  }
+
+  try {
+    // Find the student record by studentId
+    const student = await Student.findOne({ where: { studentId } });
+    if (!student) {
+      if (isAjax) return res.json({ success: false, message: "Student ID not found. Please contact your USG officer." });
+      req.flash("error_msg", "Student ID not found.");
+      return res.redirect("/");
+    }
+
+    // Check if student already has an account
+    const existingUser = await User.findOne({ where: { studentRecordId: student.id } });
+    if (existingUser) {
+      if (isAjax) return res.json({ success: false, message: "An account already exists for this Student ID." });
+      req.flash("error_msg", "Account already exists for this Student ID.");
+      return res.redirect("/");
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      name: student.firstName + " " + student.lastName,
+      email: student.email,
+      password: hashed,
+      role: "student",
+      studentRecordId: student.id
+    });
+
+    req.session.userId = user.id;
+    req.session.userName = user.name;
+    req.session.userRole = "student";
+    req.session.studentRecordId = student.id;
+
+    if (isAjax) return res.json({ success: true, message: "Student account created!", redirect: "/student-dashboard" });
+    req.flash("success_msg", "Account created successfully!");
+    res.redirect("/student-dashboard");
+  } catch (err) {
+    console.error("Student register error:", err);
+    if (isAjax) return res.json({ success: false, message: "Registration failed. Try again." });
+    req.flash("error_msg", "Registration failed.");
+    res.redirect("/");
+  }
+};
+
+export const studentDashboardPage = async (req, res) => {
+  if (!req.session.userId) return res.redirect("/login");
+  try {
+    const user = await User.findByPk(req.session.userId);
+    if (!user || user.role !== "student") return res.redirect("/dashboard");
+
+    const student = await Student.findByPk(user.studentRecordId);
+    if (!student) return res.redirect("/");
+
+    // Get all attendance records for this student
+    const attendanceRecords = await Attendance.findAll({
+      where: { studentId: student.id },
+      include: [{ model: Event, as: "event" }],
+      order: [["checkInTime", "DESC"]]
+    });
+
+    const totalPresent = attendanceRecords.filter(a => a.status === "present").length;
+    const totalLate = attendanceRecords.filter(a => a.status === "late").length;
+    const totalEvents = await Event.count();
+    const attendedEvents = attendanceRecords.length;
+
+    // Upcoming events (all upcoming/ongoing events)
+    const upcomingEvents = await Event.findAll({
+      where: { status: ["upcoming", "ongoing"] },
+      order: [["eventDate", "ASC"], ["startTime", "ASC"]]
+    });
+
+    // Monthly attendance chart data (last 6 months)
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const chartLabels = [];
+    const chartPresent = [];
+    const chartLate = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const m = d.getMonth() + 1;
+      const y = d.getFullYear();
+      chartLabels.push(monthNames[m - 1] + " " + y);
+      const pCount = attendanceRecords.filter(a => {
+        const aDate = new Date(a.checkInTime);
+        return aDate.getMonth() + 1 === m && aDate.getFullYear() === y && a.status === "present";
+      }).length;
+      const lCount = attendanceRecords.filter(a => {
+        const aDate = new Date(a.checkInTime);
+        return aDate.getMonth() + 1 === m && aDate.getFullYear() === y && a.status === "late";
+      }).length;
+      chartPresent.push(pCount);
+      chartLate.push(lCount);
+    }
+
+    res.render("student-dashboard", {
+      title: "My Dashboard",
+      userName: user.name,
+      studentId: student.studentId,
+      course: student.course,
+      yearLevel: student.yearLevel,
+      totalPresent,
+      totalLate,
+      totalEvents,
+      attendedEvents,
+      attendanceRecords: JSON.stringify(attendanceRecords),
+      upcomingEvents: JSON.stringify(upcomingEvents),
+      chartLabels: JSON.stringify(chartLabels),
+      chartPresent: JSON.stringify(chartPresent),
+      chartLate: JSON.stringify(chartLate)
+    });
+  } catch (err) {
+    console.error("Student dashboard error:", err);
+    res.redirect("/");
+  }
+};
+
+export const studentAttendancePage = async (req, res) => {
+  if (!req.session.userId) return res.redirect("/login");
+  try {
+    const user = await User.findByPk(req.session.userId);
+    if (!user || user.role !== "student") return res.redirect("/dashboard");
+    const student = await Student.findByPk(user.studentRecordId);
+    if (!student) return res.redirect("/");
+
+    const attendanceRecords = await Attendance.findAll({
+      where: { studentId: student.id },
+      include: [{ model: Event, as: "event" }],
+      order: [["checkInTime", "DESC"]]
+    });
+
+    const totalPresent = attendanceRecords.filter(a => a.status === "present").length;
+    const totalLate = attendanceRecords.filter(a => a.status === "late").length;
+    const attendedEvents = attendanceRecords.length;
+
+    res.render("student-attendance", {
+      title: "My Attendance",
+      userName: user.name,
+      studentId: student.studentId,
+      course: student.course,
+      yearLevel: student.yearLevel,
+      totalPresent,
+      totalLate,
+      attendedEvents,
+      attendanceRecords: JSON.stringify(attendanceRecords)
+    });
+  } catch (err) {
+    console.error("Student attendance page error:", err);
+    res.redirect("/student-dashboard");
+  }
+};
+
+export const studentEventsPage = async (req, res) => {
+  if (!req.session.userId) return res.redirect("/login");
+  try {
+    const user = await User.findByPk(req.session.userId);
+    if (!user || user.role !== "student") return res.redirect("/dashboard");
+    const student = await Student.findByPk(user.studentRecordId);
+    if (!student) return res.redirect("/");
+
+    const upcomingEvents = await Event.findAll({
+      where: { status: ["upcoming", "ongoing"] },
+      order: [["eventDate", "ASC"], ["startTime", "ASC"]]
+    });
+
+    res.render("student-events", {
+      title: "Upcoming Events",
+      userName: user.name,
+      studentId: student.studentId,
+      course: student.course,
+      yearLevel: student.yearLevel,
+      upcomingEvents: JSON.stringify(upcomingEvents)
+    });
+  } catch (err) {
+    console.error("Student events page error:", err);
+    res.redirect("/student-dashboard");
+  }
 };

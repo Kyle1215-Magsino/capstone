@@ -29,49 +29,78 @@ import { homePage } from "../controllers/homeController.js";
 const router = express.Router();
 router.get("/", homePage);
 
-import { loginPage, registerPage, forgotPasswordPage, dashboardPage, loginUser, registerUser, logoutUser } from "../controllers/authController.js";
+import { loginPage, registerPage, forgotPasswordPage, dashboardPage, loginUser, registerUser, logoutUser, registerStudentUser, studentDashboardPage, studentAttendancePage, studentEventsPage } from "../controllers/authController.js";
+
+// Auth middleware: must be logged in
+function requireAuth(req, res, next) {
+  if (!req.session.userId) return res.redirect("/");
+  next();
+}
+// Role guard: block students from officer/admin pages
+function officerOnly(req, res, next) {
+  if (!req.session.userId) return res.redirect("/");
+  if (req.session.userRole === "student") return res.redirect("/student-dashboard");
+  next();
+}
+// Role guard: only students
+function studentOnly(req, res, next) {
+  if (!req.session.userId) return res.redirect("/");
+  if (req.session.userRole !== "student") return res.redirect("/dashboard");
+  next();
+}
+
+// Role guard: admin only
+function adminOnly(req, res, next) {
+  if (!req.session.userId) return res.redirect("/");
+  if (req.session.userRole !== "admin") return res.redirect("/dashboard");
+  next();
+}
 
 router.get("/login", loginPage);
 router.post("/login", loginUser);
 router.get("/register", registerPage);
-router.post("/register", registerUser);
+router.post("/register", adminOnly, registerUser);
+router.post("/register-student", registerStudentUser);
 router.get("/forgot-password", forgotPasswordPage);
-router.get("/dashboard", dashboardPage);
+router.get("/dashboard", officerOnly, dashboardPage);
+router.get("/student-dashboard", studentOnly, studentDashboardPage);
+router.get("/student-attendance", studentOnly, studentAttendancePage);
+router.get("/student-events", studentOnly, studentEventsPage);
 router.get("/logout", logoutUser);
 
 // Student routes
 import { studentsPage, addStudentPage, createStudent, viewStudent, editStudentPage, updateStudent, deleteStudent, searchStudentsAPI, saveFaceData, getFaceData } from "../controllers/studentController.js";
 
-router.get("/students", studentsPage);
-router.get("/students/add", addStudentPage);
-router.post("/students/add", createStudent);
-router.get("/students/:id", viewStudent);
-router.get("/students/:id/edit", editStudentPage);
-router.post("/students/:id/edit", updateStudent);
-router.post("/students/:id/delete", deleteStudent);
-router.get("/api/students/search", searchStudentsAPI);
-router.post("/api/students/:id/face", saveFaceData);
-router.get("/api/students/faces", getFaceData);
+router.get("/students", officerOnly, studentsPage);
+router.get("/students/add", officerOnly, addStudentPage);
+router.post("/students/add", officerOnly, createStudent);
+router.get("/students/:id", officerOnly, viewStudent);
+router.get("/students/:id/edit", officerOnly, editStudentPage);
+router.post("/students/:id/edit", officerOnly, updateStudent);
+router.post("/students/:id/delete", officerOnly, deleteStudent);
+router.get("/api/students/search", officerOnly, searchStudentsAPI);
+router.post("/api/students/:id/face", officerOnly, saveFaceData);
+router.get("/api/students/faces", officerOnly, getFaceData);
 
 // Event routes
 import { eventsPage, addEventPage, createEvent, viewEvent, editEventPage, updateEvent, deleteEvent } from "../controllers/eventController.js";
 
-router.get("/events", eventsPage);
-router.get("/events/add", addEventPage);
-router.post("/events/add", createEvent);
-router.get("/events/:id", viewEvent);
-router.get("/events/:id/edit", editEventPage);
-router.post("/events/:id/edit", updateEvent);
-router.post("/events/:id/delete", deleteEvent);
+router.get("/events", officerOnly, eventsPage);
+router.get("/events/add", officerOnly, addEventPage);
+router.post("/events/add", officerOnly, createEvent);
+router.get("/events/:id", officerOnly, viewEvent);
+router.get("/events/:id/edit", officerOnly, editEventPage);
+router.post("/events/:id/edit", officerOnly, updateEvent);
+router.post("/events/:id/delete", officerOnly, deleteEvent);
 
 // Attendance routes
 import { checkinPage, processCheckin, liveAttendance, attendanceLogsPage, reportsPage, faceEnrollmentPage } from "../controllers/attendanceController.js";
 
-router.get("/checkin", checkinPage);
-router.get("/face-enrollment", faceEnrollmentPage);
-router.post("/api/checkin", processCheckin);
-router.get("/api/attendance/live/:eventId", liveAttendance);
-router.get("/attendance", attendanceLogsPage);
-router.get("/reports", reportsPage);
+router.get("/checkin", officerOnly, checkinPage);
+router.get("/face-enrollment", officerOnly, faceEnrollmentPage);
+router.post("/api/checkin", officerOnly, processCheckin);
+router.get("/api/attendance/live/:eventId", officerOnly, liveAttendance);
+router.get("/attendance", officerOnly, attendanceLogsPage);
+router.get("/reports", officerOnly, reportsPage);
 
 export default router;

@@ -31,6 +31,7 @@ export const User = sequelize.define("User", {
   name: { type: DataTypes.STRING, allowNull: false },
   email: { type: DataTypes.STRING, allowNull: false },
   password: { type: DataTypes.STRING, allowNull: false },
-  role: { type: DataTypes.ENUM("admin", "officer", "user"), defaultValue: "officer" }
+  role: { type: DataTypes.ENUM("admin", "officer", "student"), defaultValue: "officer" },
+  studentRecordId: { type: DataTypes.INTEGER, allowNull: true }
 });
 export { sequelize }; 

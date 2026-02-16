@@ -2,7 +2,7 @@
 <body class="bg-leaf-50 min-h-screen">
   {{> sidebar}}
 
-  <div class="ml-64 p-6">
+  <div class="ml-64 px-6 pb-6 pt-20">
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-user-circle text-forest-400 mr-2"></i>Face Enrollment</h1>
@@ -182,7 +182,7 @@
             <ol class="text-xs text-forest-600 space-y-1 list-decimal list-inside">
               <li>Search and select a student from the left panel</li>
               <li>Click <strong>"Start Face Enrollment"</strong></li>
-              <li>Follow the on-screen instructions: look straight, turn right, turn left, blink</li>
+              <li>Follow the on-screen instructions: look straight, turn right, turn left</li>
               <li>Each step captures a face sample from a different angle</li>
               <li>Once all steps pass, the face data is saved for check-in verification</li>
             </ol>
@@ -329,12 +329,18 @@
         await new Promise((resolve) => {
           if (video.readyState >= 2) { resolve(); return; }
           video.addEventListener('loadeddata', () => resolve(), { once: true });
-          setTimeout(resolve, 3000);
+          setTimeout(resolve, 8000);
         });
         document.getElementById('cameraPlaceholder').classList.add('hidden');
       } catch (err) {
         console.error('Camera error:', err);
-        showStatus('error', 'Camera access denied. Please allow camera permissions in your browser.');
+        var msg = 'Camera error: ';
+        if (err.name === 'NotAllowedError') msg += 'Permission denied. Please allow camera in browser settings.';
+        else if (err.name === 'NotFoundError') msg += 'No camera found. Please connect a camera.';
+        else if (err.name === 'NotReadableError' || err.name === 'AbortError') msg += 'Camera is in use by another app. Close other apps using the camera and try again.';
+        else if (err.name === 'OverconstrainedError') msg += 'Camera does not support the requested resolution.';
+        else msg += (err.message || err.name || 'Unknown error');
+        showStatus('error', msg);
       }
     }
 
@@ -376,15 +382,18 @@
 
     var enrollCancelled = false;
 
+    // Helper: yield to browser to prevent freezing
+    function yieldToMain() {
+      return new Promise(function(r) { requestAnimationFrame(function() { setTimeout(r, 0); }); });
+    }
+
     var ENROLL_STEPS = [
       { icon: '<i class="fas fa-arrows-alt"></i>', title: 'Look Straight Ahead', sub: 'Position your face inside the oval', dotColor: 'bg-blue-400', guideColor: 'border-blue-400',
         check: function(pts) { return Math.abs(estimateYaw(pts)) < 0.12; } },
       { icon: '<i class="fas fa-arrow-right"></i>', title: 'Turn Your Head Right', sub: 'Slowly turn your head to your right', dotColor: 'bg-yellow-400', guideColor: 'border-yellow-400',
         check: function(pts) { return estimateYaw(pts) < -0.13; } },
       { icon: '<i class="fas fa-arrow-left"></i>', title: 'Turn Your Head Left', sub: 'Slowly turn your head to your left', dotColor: 'bg-purple-400', guideColor: 'border-purple-400',
-        check: function(pts) { return estimateYaw(pts) > 0.13; } },
-      { icon: '<i class="fas fa-eye"></i>', title: 'Blink Your Eyes', sub: 'Blink naturally \u2014 we\'ll detect it', dotColor: 'bg-green-400', guideColor: 'border-green-400',
-        check: null }
+        check: function(pts) { return estimateYaw(pts) > 0.13; } }
     ];
 
     function setEnrollStepUI(stepIdx, status) {
@@ -464,19 +473,21 @@
         var step = ENROLL_STEPS[stepIdx];
         setEnrollStepUI(stepIdx, 'waiting');
 
-        document.getElementById('captureLabel').textContent = 'Step ' + (stepIdx + 1) + ' of 4';
-        document.getElementById('capturePct').textContent = stepIdx + '/4';
-        document.getElementById('captureBar').style.width = ((stepIdx / 4) * 100) + '%';
+        document.getElementById('captureLabel').textContent = 'Step ' + (stepIdx + 1) + ' of 3';
+        document.getElementById('capturePct').textContent = stepIdx + '/3';
+        document.getElementById('captureBar').style.width = ((stepIdx / 3) * 100) + '%';
 
         var stepDone = false;
-        var blinkCount = 0;
-        var eyeWasOpen = true;
 
-        // Each step has 15 seconds to complete (60 × 250ms)
-        for (var attempt = 0; attempt < 60; attempt++) {
+        // Each step has ~18 seconds to complete (50 × 350ms)
+        for (var attempt = 0; attempt < 50; attempt++) {
           if (enrollCancelled) break;
 
+          // Yield to browser to keep UI responsive
+          await yieldToMain();
+
           try {
+            // Use SSD MobileNet for reliable detection, with yield to prevent freeze
             var detection = await faceapi
               .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
               .withFaceLandmarks()
@@ -491,14 +502,13 @@
 
             var pts = detection.landmarks.positions;
 
-            if (stepIdx < 3) {
-              // ---- Head pose steps (center / right / left) ----
-              if (step.check(pts)) {
+            if (step.check(pts)) {
                 setEnrollStepUI(stepIdx, 'active');
                 document.getElementById('enrollSubStep').textContent = 'Hold still...';
 
-                // Confirm by re-detecting after a short hold
-                await new Promise(function(r) { setTimeout(r, 400); });
+                // Brief hold to confirm pose is steady
+                await new Promise(function(r) { setTimeout(r, 300); });
+                await yieldToMain();
                 var confirm = await faceapi
                   .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
                   .withFaceLandmarks()
@@ -510,48 +520,17 @@
                   stepDone = true;
                   document.getElementById('enrollStep').textContent = '\u2713 ' + step.title;
                   document.getElementById('enrollSubStep').textContent = 'Captured!';
-                  await new Promise(function(r) { setTimeout(r, 700); });
+                  await new Promise(function(r) { setTimeout(r, 400); });
                   break;
                 }
               } else {
                 setEnrollStepUI(stepIdx, 'waiting');
               }
-            } else {
-              // ---- Blink step ----
-              var ear = getAvgEAR(pts);
-              setEnrollStepUI(stepIdx, 'active');
-
-              if (ear > 0.25) {
-                eyeWasOpen = true;
-              }
-              if (eyeWasOpen && ear < 0.21) {
-                blinkCount++;
-                eyeWasOpen = false;
-                document.getElementById('enrollSubStep').textContent = 'Blink detected! (' + blinkCount + '/2)';
-
-                if (blinkCount >= 2) {
-                  // Liveness confirmed — capture one final center descriptor
-                  await new Promise(function(r) { setTimeout(r, 400); });
-                  var blinkDet = await faceapi
-                    .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
-                    .withFaceLandmarks()
-                    .withFaceDescriptor();
-                  if (blinkDet) descriptors.push(Array.from(blinkDet.descriptor));
-
-                  setEnrollStepUI(stepIdx, 'done');
-                  stepDone = true;
-                  document.getElementById('enrollStep').textContent = '\u2713 Blink Verified';
-                  document.getElementById('enrollSubStep').textContent = 'Liveness confirmed!';
-                  await new Promise(function(r) { setTimeout(r, 700); });
-                  break;
-                }
-              }
-            }
           } catch (err) {
             console.error('Enrollment step error:', err);
           }
 
-          await new Promise(function(r) { setTimeout(r, 250); });
+          await new Promise(function(r) { setTimeout(r, 350); });
         }
 
         if (!stepDone && !enrollCancelled) {

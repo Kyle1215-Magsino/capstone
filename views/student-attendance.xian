@@ -1,0 +1,131 @@
+{{> head}}
+<body class="bg-leaf-50 min-h-screen">
+  {{> student-sidebar}}
+
+  <!-- Main Content -->
+  <div class="ml-64 px-6 pb-6 pt-20">
+    <!-- Top Bar -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">My Attendance</h1>
+        <p class="text-sm text-gray-500">View all your attendance records across events.</p>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-forest-100 text-forest-600">
+          <i class="fas fa-id-card mr-1.5"></i>{{ studentId }}
+        </span>
+        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-leaf-100 text-leaf-600">
+          {{ course }} &bull; Year {{ yearLevel }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-xl p-6 shadow-sm border card hover-lift animate-fadeInUp">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500 font-medium">Present</p>
+            <p class="text-3xl font-bold text-green-600 mt-1">{{ totalPresent }}</p>
+          </div>
+          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+            <i class="fas fa-check-circle text-green-500 text-xl"></i>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl p-6 shadow-sm border card hover-lift animate-fadeInUp" style="animation-delay:0.1s">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500 font-medium">Late</p>
+            <p class="text-3xl font-bold text-orange-500 mt-1">{{ totalLate }}</p>
+          </div>
+          <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+            <i class="fas fa-clock text-orange-500 text-xl"></i>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl p-6 shadow-sm border card hover-lift animate-fadeInUp" style="animation-delay:0.2s">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-500 font-medium">Events Attended</p>
+            <p class="text-3xl font-bold text-forest-500 mt-1">{{ attendedEvents }}</p>
+          </div>
+          <div class="w-12 h-12 bg-forest-100 rounded-lg flex items-center justify-center">
+            <i class="fas fa-calendar-check text-forest-500 text-xl"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance Logs DataTable -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-clipboard-list text-forest-400 mr-2"></i>Attendance Records</h2>
+        <span class="text-xs text-gray-400" id="logCount">0 records</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="attendanceDataTable" class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <th class="px-6 py-3">Event</th>
+              <th class="px-6 py-3">Date</th>
+              <th class="px-6 py-3">Check-In Time</th>
+              <th class="px-6 py-3">Method</th>
+              <th class="px-6 py-3">Status</th>
+            </tr>
+          </thead>
+          <tbody id="attendanceBody" class="divide-y divide-gray-50">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="application/json" id="__attendanceData">{{{attendanceRecords}}}</script>
+
+  <script>
+    var attendanceRecords = JSON.parse(document.getElementById('__attendanceData').textContent);
+    var tbody = document.getElementById('attendanceBody');
+    var logCount = document.getElementById('logCount');
+    logCount.textContent = attendanceRecords.length + ' record(s)';
+
+    attendanceRecords.forEach(function(rec) {
+      var evName = rec.event ? rec.event.eventName : 'Unknown Event';
+      var evDate = rec.event ? rec.event.eventDate : '—';
+      var checkIn = new Date(rec.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      var method = rec.verificationMethod;
+      var methodIcon = method === 'facial' ? 'fa-smile' : method === 'rfid' ? 'fa-wifi' : 'fa-keyboard';
+      var methodColor = method === 'facial' ? 'text-purple-500 bg-purple-50' : method === 'rfid' ? 'text-blue-500 bg-blue-50' : 'text-gray-500 bg-gray-50';
+      var statusColor = rec.status === 'present' ? 'bg-green-100 text-green-700' : rec.status === 'late' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
+      var statusIcon = rec.status === 'present' ? 'fa-check-circle' : rec.status === 'late' ? 'fa-clock' : 'fa-times-circle';
+
+      tbody.innerHTML += '<tr class="hover:bg-gray-50 transition-colors">' +
+        '<td class="px-6 py-3 font-medium text-gray-800">' + evName + '</td>' +
+        '<td class="px-6 py-3 text-gray-500">' + evDate + '</td>' +
+        '<td class="px-6 py-3 text-gray-500">' + checkIn + '</td>' +
+        '<td class="px-6 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' + methodColor + '"><i class="fas ' + methodIcon + ' mr-1"></i>' + method + '</span></td>' +
+        '<td class="px-6 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' + statusColor + '"><i class="fas ' + statusIcon + ' mr-1"></i>' + rec.status + '</span></td>' +
+      '</tr>';
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof simpleDatatables !== 'undefined') {
+        new simpleDatatables.DataTable('#attendanceDataTable', {
+          searchable: true,
+          sortable: true,
+          fixedHeight: false,
+          perPage: 15,
+          perPageSelect: [10, 15, 25, 50],
+          labels: {
+            placeholder: 'Search attendance...',
+            noRows: '<div class="py-8 text-center text-gray-400"><i class="fas fa-clipboard text-4xl mb-3 block"></i><p class="text-sm font-medium">No attendance records yet</p><p class="text-xs mt-1">Your check-in history will appear here</p></div>',
+            info: 'Showing {start} to {end} of {rows} records',
+          }
+        });
+      }
+    });
+  </script>
+
+  {{> footer}}
+</body>
+</html>

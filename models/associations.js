@@ -4,6 +4,10 @@ import { Event } from "./eventModel.js";
 import { Attendance } from "./attendanceModel.js";
 import { sequelize } from "./db.js";
 
+// User-Student link (student role users linked to Student record)
+User.belongsTo(Student, { foreignKey: "studentRecordId", as: "studentRecord" });
+Student.hasOne(User, { foreignKey: "studentRecordId", as: "userAccount" });
+
 // Event created by a User (USG officer)
 Event.belongsTo(User, { foreignKey: "createdBy", as: "organizer" });
 User.hasMany(Event, { foreignKey: "createdBy", as: "events" });

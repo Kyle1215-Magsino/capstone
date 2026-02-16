@@ -50,32 +50,31 @@ if (createDb) {
 try {
   await sequelize.authenticate();
   console.log("✅ Connected to MySQL database!");
-  await sequelize.sync({ force: true }); // Drops and recreates tables
-  console.log("✅ Tables created for all models!");
+  await sequelize.sync({ alter: true }); // Updates schema without dropping data
+  console.log("✅ Tables synced (existing data preserved)!");
 
-  // Seed default credentials
+  // Seed default credentials — only if they don't already exist
   const hashedAdmin = await bcrypt.hash("admin123", 10);
   const hashedOfficer = await bcrypt.hash("officer123", 10);
 
-  await User.bulkCreate([
-    {
-      name: "Admin",
-      email: "admin@minsu.edu.ph",
-      password: hashedAdmin,
-      role: "admin",
-    },
-    {
-      name: "USG Officer",
-      email: "officer@minsu.edu.ph",
-      password: hashedOfficer,
-      role: "officer",
-    },
-  ]);
+  // Admin
+  const [adminUser, adminCreated] = await User.findOrCreate({
+    where: { email: "admin@minsu.edu.ph" },
+    defaults: { name: "Admin", password: hashedAdmin, role: "admin" }
+  });
+  console.log(adminCreated ? "✅ Admin account created" : "⏩ Admin account already exists — skipped");
 
-  console.log("✅ Default credentials seeded!");
-  console.log("──────────────────────────────────────");
+  // Officer
+  const [officerUser, officerCreated] = await User.findOrCreate({
+    where: { email: "officer@minsu.edu.ph" },
+    defaults: { name: "USG Officer", password: hashedOfficer, role: "officer" }
+  });
+  console.log(officerCreated ? "✅ Officer account created" : "⏩ Officer account already exists — skipped");
+
+  console.log("\n──────────────────────────────────────");
   console.log("  Admin    → admin@minsu.edu.ph / admin123");
   console.log("  Officer  → officer@minsu.edu.ph / officer123");
+  console.log("  Students → register via Student Portal");
   console.log("──────────────────────────────────────");
 } catch (err) {
   console.error("❌ Migration failed:", err);

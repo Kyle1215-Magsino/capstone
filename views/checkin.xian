@@ -9,7 +9,7 @@
 <body class="bg-leaf-50 min-h-screen">
   {{> sidebar}}
 
-  <div class="ml-64 p-6">
+  <div class="ml-64 px-6 pb-6 pt-20">
 
     <!-- ========== HEADER ========== -->
     <div class="flex items-center justify-between mb-6">
@@ -624,7 +624,7 @@
         function onErr(e) { videoEl.removeEventListener('loadeddata', onReady); videoEl.removeEventListener('error', onErr); reject(e); }
         videoEl.addEventListener('loadeddata', onReady);
         videoEl.addEventListener('error', onErr);
-        setTimeout(function() { videoEl.removeEventListener('loadeddata', onReady); videoEl.removeEventListener('error', onErr); resolve(); }, 3000);
+        setTimeout(function() { videoEl.removeEventListener('loadeddata', onReady); videoEl.removeEventListener('error', onErr); resolve(); }, 8000);
       });
     }
 
@@ -650,7 +650,13 @@
         loadEnrolledFaces();
       } catch (err) {
         console.error('Camera error:', err);
-        setCameraStatus('red', 'Camera access denied');
+        var msg = 'Camera error: ';
+        if (err.name === 'NotAllowedError') msg = 'Permission denied — allow camera in browser settings';
+        else if (err.name === 'NotFoundError') msg = 'No camera found — connect a camera';
+        else if (err.name === 'NotReadableError' || err.name === 'AbortError') msg = 'Camera in use by another app — close it and retry';
+        else if (err.name === 'OverconstrainedError') msg = 'Camera doesn\'t support requested resolution';
+        else msg = err.message || err.name || 'Unknown camera error';
+        setCameraStatus('red', msg);
       }
     }
 
@@ -735,9 +741,15 @@
       var captureBtn = document.getElementById('captureBtn');
 
       if (!videoStream || !video.srcObject || video.readyState < 2) {
-        showToast('error', 'Camera Not Ready', 'Please wait for the camera to initialize.');
-        startCamera();
-        return;
+        showToast('info', 'Camera Initializing', 'Restarting camera — please wait...');
+        setCameraStatus('yellow', 'Restarting camera...');
+        await startCamera();
+        // Wait and recheck
+        await new Promise(function(r){ setTimeout(r, 2000); });
+        if (!videoStream || !video.srcObject || video.readyState < 2) {
+          showToast('error', 'Camera Not Ready', 'Camera failed to start. Try refreshing the page.');
+          return;
+        }
       }
 
       captureBtn.disabled = true;
@@ -746,6 +758,8 @@
       matchOv.classList.add('hidden');
 
       try {
+        // Yield to browser before heavy detection
+        await new Promise(function(r) { requestAnimationFrame(function() { setTimeout(r, 0); }); });
         // Try detection up to 3 times for reliability
         var detection = null;
         for (var attempt = 0; attempt < 3; attempt++) {
@@ -1085,8 +1099,14 @@
       var btn = document.getElementById('fsCaptureBtn');
 
       if (!fsVideoStream || !video.srcObject || video.readyState < 2) {
-        showToast('error', 'Camera Not Ready', 'Please wait for the camera.');
-        return;
+        showToast('info', 'Camera Initializing', 'Restarting camera — please wait...');
+        fsCamStatus('yellow', 'Restarting camera...');
+        await fsStartCamera();
+        await new Promise(function(r){ setTimeout(r, 2000); });
+        if (!fsVideoStream || !video.srcObject || video.readyState < 2) {
+          showToast('error', 'Camera Not Ready', 'Camera failed to start. Try refreshing.');
+          return;
+        }
       }
 
       btn.disabled = true;
@@ -1098,6 +1118,8 @@
       guide.style.borderStyle = 'solid';
 
       try {
+        // Yield to browser before heavy detection
+        await new Promise(function(r) { requestAnimationFrame(function() { setTimeout(r, 0); }); });
         // Try detection up to 3 times for reliability
         var detection = null;
         for (var attempt = 0; attempt < 3; attempt++) {
