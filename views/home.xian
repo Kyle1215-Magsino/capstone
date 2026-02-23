@@ -110,7 +110,7 @@
             <i class="fas fa-camera text-white text-xl"></i>
           </div>
           <h3 class="font-bold text-lg mb-2 text-dark-900">Facial Recognition</h3>
-          <p class="text-gray-500 text-sm leading-relaxed">AI-powered face verification eliminates proxy attendance and guarantees authentic student participation at every event.</p>
+          <p class="text-gray-500 text-sm leading-relaxed"> face verification eliminates proxy attendance and guarantees authentic student participation at every event.</p>
         </div>
         <!-- Feature 3 -->
         <div class="group bg-white rounded-2xl p-7 border border-gray-100 hover:border-brand-200 hover:shadow-xl hover:shadow-brand-400/5 transition-all duration-500 hover:-translate-y-1">
@@ -118,7 +118,7 @@
             <i class="fas fa-map-marker-alt text-dark-900 text-xl"></i>
           </div>
           <h3 class="font-bold text-lg mb-2 text-dark-900">GPS Location Tracking</h3>
-          <p class="text-gray-500 text-sm leading-relaxed">Geofence-based verification ensures students are physically present within the event venue radius.</p>
+          <p class="text-gray-500 text-sm leading-relaxed">verification ensures students are physically present within the event venue radius.</p>
         </div>
         <!-- Feature 4 -->
         <div class="group bg-white rounded-2xl p-7 border border-gray-100 hover:border-forest-200 hover:shadow-xl hover:shadow-forest-400/5 transition-all duration-500 hover:-translate-y-1">
