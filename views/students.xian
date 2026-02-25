@@ -5,12 +5,19 @@
   <div class="md:ml-64 px-6 pb-28 pt-20">
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-gray-800">Students</h1>
-        <p class="text-sm text-gray-500">Manage registered students ({{ totalStudents }} total)</p>
+        <h1 class="text-2xl font-bold text-gray-800">{{#if archivedView}}Archived Students{{else}}Students{{/if}}</h1>
+        <p class="text-sm text-gray-500">{{#if archivedView}}View and restore archived students.{{else}}Manage registered students ({{ totalStudents }} total){{/if}}</p>
       </div>
-      <button onclick="openAddStudentModal()" class="btn-forest px-4 py-2 text-sm">
-        <i class="fas fa-user-plus mr-2"></i>Add Student
-      </button>
+      <div class="flex gap-2">
+        {{#if archivedView}}
+          <a href="/students" class="btn-forest px-4 py-2 text-sm"><i class="fas fa-users mr-2"></i>Active Students</a>
+        {{else}}
+          <a href="/students/archived" class="btn-yellow px-4 py-2 text-sm"><i class="fas fa-archive mr-2"></i>Archived</a>
+          <button onclick="openAddStudentModal()" class="btn-forest px-4 py-2 text-sm">
+            <i class="fas fa-user-plus mr-2"></i>Add Student
+          </button>
+        {{/if}}
+      </div>
     </div>
 
     {{#if success_msg.length}}
@@ -50,6 +57,9 @@
 
   <script type="application/json" id="__studentsData">{{{students}}}</script>
   <script>
+
+    // Set JS flag for archived view BEFORE rendering table
+    window.archivedView = '{{archivedView}}' === 'true';
     const students = JSON.parse(document.getElementById('__studentsData').textContent);
     const tbody = document.getElementById('studentsTable');
     if (tbody) {
@@ -58,6 +68,20 @@
         students.forEach(s => {
           const statusClass = s.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
           const rfidBadge = s.rfidTag ? `<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs"><i class="fas fa-wifi mr-1"></i>${s.rfidTag}</span>` : '<span class="text-gray-400 text-xs">Not set</span>';
+          let actions = '';
+          if (window.archivedView) {
+            actions = `<form method="POST" action="/students/${s.id}/restore" onsubmit="return confirm('Restore this student?')" class="inline">
+              <button type="submit" class="text-green-600 hover:text-green-700" title="Restore"><i class="fas fa-undo"></i></button>
+            </form>`;
+          } else {
+            actions = `
+              <a href="/students/${s.id}" class="text-forest-400 hover:text-forest-500" title="View"><i class="fas fa-eye"></i></a>
+              <a href="/students/${s.id}/edit" class="text-yellow-600 hover:text-yellow-700" title="Edit"><i class="fas fa-edit"></i></a>
+              <form method="POST" action="/students/${s.id}/archive" onsubmit="return confirm('Archive this student? This can be restored later.')" class="inline">
+                <button type="submit" class="text-yellow-600 hover:text-yellow-700" title="Archive"><i class="fas fa-archive"></i></button>
+              </form>
+            `;
+          }
           tbody.innerHTML += `<tr class="hover:bg-leaf-50">
             <td class="px-6 py-3 font-medium text-gray-800">${s.studentId}</td>
             <td class="px-6 py-3">${s.firstName} ${s.lastName}</td>
@@ -67,36 +91,32 @@
             <td class="px-6 py-3">${rfidBadge}</td>
             <td class="px-6 py-3"><span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${s.status}</span></td>
             <td class="px-6 py-3">
-              <div class="flex items-center space-x-2">
-                <a href="/students/${s.id}" class="text-forest-400 hover:text-forest-500" title="View"><i class="fas fa-eye"></i></a>
-                <a href="/students/${s.id}/edit" class="text-yellow-600 hover:text-yellow-700" title="Edit"><i class="fas fa-edit"></i></a>
-                <form method="POST" action="/students/${s.id}/delete" onsubmit="return confirm('Delete this student?')" class="inline">
-                  <button type="submit" class="text-red-500 hover:text-red-700" title="Delete"><i class="fas fa-trash"></i></button>
-                </form>
-              </div>
+              <div class="flex items-center space-x-2">${actions}</div>
             </td>
           </tr>`;
         });
       }
     }
 
-    // Initialize DataTables
+    // Initialize DataTables after table is rendered
     document.addEventListener('DOMContentLoaded', function() {
-      const dt = new simpleDatatables.DataTable('#studentsDataTable', {
-        searchable: true,
-        sortable: true,
-        fixedHeight: false,
-        perPage: 15,
-        perPageSelect: [10, 15, 25, 50, 100],
-        labels: {
-          placeholder: 'Search students...',
-          noRows: '<div class="py-8 text-center text-gray-400"><i class="fas fa-user-graduate text-4xl mb-3 block"></i>No students found.</div>',
-          info: 'Showing {start} to {end} of {rows} students',
-        },
-        columns: [
-          { select: 7, sortable: false }
-        ]
-      });
+      if (document.querySelector('#studentsDataTable')) {
+        new simpleDatatables.DataTable('#studentsDataTable', {
+          searchable: true,
+          sortable: true,
+          fixedHeight: false,
+          perPage: 15,
+          perPageSelect: [10, 15, 25, 50, 100],
+          labels: {
+            placeholder: 'Search students...',
+            noRows: '<div class="py-8 text-center text-gray-400"><i class="fas fa-user-graduate text-4xl mb-3 block"></i>No students found.</div>',
+            info: 'Showing {start} to {end} of {rows} students',
+          },
+          columns: [
+            { select: 7, sortable: false }
+          ]
+        });
+      }
     });
   </script>
 
@@ -116,7 +136,7 @@
 
         <!-- Modal Body -->
         <div class="px-6 py-5">
-          <div id="addStudentAlert" class="hidden px-4 py-3 rounded-lg mb-4 text-sm"></div>
+          <div id="addStudentAlert" class="hidden px-4 py-3 rounded-lg mb-4 text-sm shadow-lg flex items-center justify-between gap-3"></div>
           <form id="addStudentForm" class="space-y-5">
             <div class="grid grid-cols-2 gap-4">
               <div>
@@ -216,20 +236,29 @@
         });
         const data = await res.json();
         if (data.success) {
-          alert.className = 'bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm';
-          alert.innerHTML = '<i class="fas fa-check-circle mr-2"></i>' + data.message;
+          alert.className = 'bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm shadow-lg flex items-center justify-between gap-3';
+          alert.innerHTML = `
+            <span class="flex items-center"><i class="fas fa-check-circle animate-bounce mr-2"></i>${data.message}</span>
+            <button onclick="this.parentElement.classList.add('hidden')" class="ml-4 text-green-700 hover:text-green-900 text-lg font-bold">&times;</button>
+          `;
           alert.classList.remove('hidden');
           setTimeout(() => { window.location.reload(); }, 1000);
         } else {
-          alert.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm';
-          alert.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>' + data.message;
+          alert.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm shadow-lg flex items-center justify-between gap-3';
+          alert.innerHTML = `
+            <span class="flex items-center"><i class="fas fa-exclamation-circle animate-shake mr-2"></i>${data.message}</span>
+            <button onclick="this.parentElement.classList.add('hidden')" class="ml-4 text-red-700 hover:text-red-900 text-lg font-bold">&times;</button>
+          `;
           alert.classList.remove('hidden');
           btn.disabled = false;
           btn.innerHTML = '<i class="fas fa-save mr-2"></i>Save Student';
         }
       } catch (err) {
-        alert.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm';
-        alert.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Connection error. Please try again.';
+        alert.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm shadow-lg flex items-center justify-between gap-3';
+        alert.innerHTML = `
+          <span class="flex items-center"><i class="fas fa-exclamation-circle animate-shake mr-2"></i>Connection error. Please try again.</span>
+          <button onclick="this.parentElement.classList.add('hidden')" class="ml-4 text-red-700 hover:text-red-900 text-lg font-bold">&times;</button>
+        `;
         alert.classList.remove('hidden');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-save mr-2"></i>Save Student';

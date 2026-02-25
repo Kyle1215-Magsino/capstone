@@ -49,5 +49,9 @@ export const Student = sequelize.define("Student", {
   status: {
     type: DataTypes.ENUM("active", "inactive"),
     defaultValue: "active"
+  },
+  archived: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 });

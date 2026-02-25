@@ -1,5 +1,4 @@
-
-  /*
+/*
     MIT License
     
     Copyright (c) 2025 Christian I. Cabrera || XianFire Framework
@@ -69,7 +68,7 @@ router.get("/student-events", studentOnly, studentEventsPage);
 router.get("/logout", logoutUser);
 
 // Student routes
-import { studentsPage, addStudentPage, createStudent, viewStudent, editStudentPage, updateStudent, deleteStudent, searchStudentsAPI, saveFaceData, getFaceData } from "../controllers/studentController.js";
+import { studentsPage, addStudentPage, createStudent, viewStudent, editStudentPage, updateStudent, archiveStudent, restoreStudent, archivedStudentsPage, searchStudentsAPI, saveFaceData, getFaceData } from "../controllers/studentController.js";
 
 router.get("/students", officerOnly, studentsPage);
 router.get("/students/add", officerOnly, addStudentPage);
@@ -77,10 +76,11 @@ router.post("/students/add", officerOnly, createStudent);
 router.get("/students/:id", officerOnly, viewStudent);
 router.get("/students/:id/edit", officerOnly, editStudentPage);
 router.post("/students/:id/edit", officerOnly, updateStudent);
-router.post("/students/:id/delete", officerOnly, deleteStudent);
+router.post("/students/:id/archive", officerOnly, archiveStudent);
 router.get("/api/students/search", officerOnly, searchStudentsAPI);
 router.post("/api/students/:id/face", officerOnly, saveFaceData);
 router.get("/api/students/faces", requireAuth, getFaceData);
+router.get("/students/archived", officerOnly, archivedStudentsPage);
 
 // Event routes
 import { eventsPage, addEventPage, createEvent, viewEvent, editEventPage, updateEvent, deleteEvent, activeEventsAPI } from "../controllers/eventController.js";

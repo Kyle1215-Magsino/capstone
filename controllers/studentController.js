@@ -11,14 +11,14 @@ const requireAuth = (req, res) => {
 export const studentsPage = async (req, res) => {
   if (!requireAuth(req, res)) return;
   try {
-    const { count, rows } = await Student.findAndCountAll({
+    const students = await Student.findAll({
+      where: { archived: false },
       order: [["lastName", "ASC"]]
     });
-
     res.render("students", {
       title: "Students",
-      students: JSON.stringify(rows),
-      totalStudents: count,
+      students: JSON.stringify(students),
+      totalStudents: students.length,
       userName: req.session.userName,
       userRole: req.session.userRole
     });
@@ -67,12 +67,19 @@ export const createStudent = async (req, res) => {
 export const viewStudent = async (req, res) => {
   if (!requireAuth(req, res)) return;
   try {
-    const student = await Student.findByPk(req.params.id, {
+    // Fetch student regardless of archived status
+    const student = await Student.findOne({
+      where: { id: req.params.id },
       include: [{ model: Attendance, as: "attendances", include: ["event"] }]
     });
     if (!student) {
       req.flash("error_msg", "Student not found.");
-      return res.redirect("/students");
+      // Redirect to archived or active list based on referrer
+      const ref = req.get('Referrer') || '';
+      if (ref.includes('/students/archived')) {
+        return res.redirect('/students/archived');
+      }
+      return res.redirect('/students');
     }
     res.render("student-view", {
       title: `${student.firstName} ${student.lastName}`,
@@ -90,10 +97,16 @@ export const viewStudent = async (req, res) => {
 export const editStudentPage = async (req, res) => {
   if (!requireAuth(req, res)) return;
   try {
-    const student = await Student.findByPk(req.params.id);
+    // Fetch student regardless of archived status
+    const student = await Student.findOne({ where: { id: req.params.id } });
     if (!student) {
       req.flash("error_msg", "Student not found.");
-      return res.redirect("/students");
+      // Redirect to archived or active list based on referrer
+      const ref = req.get('Referrer') || '';
+      if (ref.includes('/students/archived')) {
+        return res.redirect('/students/archived');
+      }
+      return res.redirect('/students');
     }
     res.render("student-edit", {
       title: "Edit Student",
@@ -126,16 +139,15 @@ export const updateStudent = async (req, res) => {
 };
 
 // Delete student
-export const deleteStudent = async (req, res) => {
+export const archiveStudent = async (req, res) => {
   if (!requireAuth(req, res)) return;
   try {
-    await Attendance.destroy({ where: { studentId: req.params.id } });
-    await Student.destroy({ where: { id: req.params.id } });
-    req.flash("success_msg", "Student deleted.");
+    await Student.update({ archived: true }, { where: { id: req.params.id } });
+    req.flash("success_msg", "Student archived.");
     res.redirect("/students");
   } catch (err) {
-    console.error("Delete student error:", err);
-    req.flash("error_msg", "Failed to delete student.");
+    console.error("Archive student error:", err);
+    req.flash("error_msg", "Failed to archive student.");
     res.redirect("/students");
   }
 };

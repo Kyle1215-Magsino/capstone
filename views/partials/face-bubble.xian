@@ -808,13 +808,18 @@ window._fb = (function() {
   // Listen for bubble position changes and adjust main content margin
   function updateBubbleMargin() {
     var wrap = document.getElementById('fbWrap');
-    var mainContent = document.querySelector('.md\:ml-64, .main-content, .dashboard-content, main');
+    var selectors = ['.md\\:ml-64', '.main-content', '.dashboard-content', 'main'];
+    var mainContent = null;
+    for (var i = 0; i < selectors.length; i++) {
+      mainContent = document.querySelector(selectors[i]);
+      if (mainContent) break;
+    }
     if (!wrap || !mainContent) return;
     var r = wrap.getBoundingClientRect();
     if (r.top < 100) {
-      mainContent.classList.add('bubble-top-margin');
+      if (mainContent.classList) mainContent.classList.add('bubble-top-margin');
     } else {
-      mainContent.classList.remove('bubble-top-margin');
+      if (mainContent.classList) mainContent.classList.remove('bubble-top-margin');
     }
   }
   // Observe bubble position changes
