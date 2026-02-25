@@ -1,8 +1,8 @@
-{{> head}}
+﻿{{> head}}
 <body class="bg-leaf-50 min-h-screen">
   {{> sidebar}}
 
-  <div class="ml-64 px-6 pb-6 pt-20">
+  <div class="md:ml-64 px-6 pb-28 pt-20">
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-user-circle text-forest-400 mr-2"></i>Face Enrollment</h1>
@@ -278,7 +278,7 @@
           '</div>' +
           '<div class="flex-1 min-w-0">' +
             '<p class="text-sm font-medium text-gray-800 truncate">' + s.firstName + ' ' + s.lastName + '</p>' +
-            '<p class="text-xs text-gray-500">' + s.studentId + ' • ' + s.course + ' • Year ' + s.yearLevel + '</p>' +
+            '<p class="text-xs text-gray-500">' + s.studentId + ' â€¢ ' + s.course + ' â€¢ Year ' + s.yearLevel + '</p>' +
           '</div>' +
           (has
             ? '<span class="text-xs text-green-500 flex-shrink-0"><i class="fas fa-user-check mr-1"></i>Enrolled</span>'
@@ -295,7 +295,7 @@
       document.getElementById('selectedStudent').classList.remove('hidden');
       document.getElementById('studentAvatar').textContent = selectedStudent.firstName[0] + selectedStudent.lastName[0];
       document.getElementById('studentName').textContent = selectedStudent.firstName + ' ' + selectedStudent.lastName;
-      document.getElementById('studentInfo').textContent = selectedStudent.studentId + ' • ' + selectedStudent.course + ' • Year ' + selectedStudent.yearLevel;
+      document.getElementById('studentInfo').textContent = selectedStudent.studentId + ' â€¢ ' + selectedStudent.course + ' â€¢ Year ' + selectedStudent.yearLevel;
 
       const statusDiv = document.getElementById('studentFaceStatus');
       statusDiv.innerHTML = selectedStudent.faceData
@@ -479,7 +479,7 @@
 
         var stepDone = false;
 
-        // Each step has ~18 seconds to complete (50 × 350ms)
+        // Each step has ~18 seconds to complete (50 Ã— 350ms)
         for (var attempt = 0; attempt < 50; attempt++) {
           if (enrollCancelled) break;
 
@@ -495,7 +495,7 @@
 
             if (!detection) {
               setEnrollStepUI(stepIdx, 'waiting');
-              document.getElementById('enrollSubStep').textContent = 'No face detected — move into the oval';
+              document.getElementById('enrollSubStep').textContent = 'No face detected â€” move into the oval';
               await new Promise(function(r) { setTimeout(r, 250); });
               continue;
             }
@@ -553,7 +553,7 @@
         return;
       }
 
-      // ---- All 4 steps done — save ----
+      // ---- All 4 steps done â€” save ----
       document.getElementById('captureBar').style.width = '100%';
       document.getElementById('capturePct').textContent = '4/4';
       document.getElementById('captureLabel').textContent = 'Saving face data...';
@@ -664,7 +664,7 @@
           '<div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm font-bold flex-shrink-0"><i class="fas fa-user-check"></i></div>' +
           '<div class="flex-1 min-w-0">' +
             '<p class="text-sm font-medium text-gray-800 truncate">' + s.firstName + ' ' + s.lastName + '</p>' +
-            '<p class="text-xs text-gray-500">' + s.studentId + ' • ' + s.course + '</p>' +
+            '<p class="text-xs text-gray-500">' + s.studentId + ' â€¢ ' + s.course + '</p>' +
           '</div>' +
           '<button onclick="removeEnrollment(' + s.id + ', \'' + (s.firstName + ' ' + s.lastName).replace(/'/g, "\\'") + '\')" class="opacity-0 group-hover:opacity-100 text-xs text-red-400 hover:text-red-600 transition p-1" title="Remove">' +
             '<i class="fas fa-trash-alt"></i>' +
@@ -700,5 +700,6 @@
       }
     }
   </script>
+
 </body>
 </html>

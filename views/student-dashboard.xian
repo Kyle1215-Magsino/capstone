@@ -3,17 +3,14 @@
   {{> student-sidebar}}
 
   <!-- Main Content -->
-  <div class="ml-64 px-6 pb-6 pt-20">
+  <div class="md:ml-64 px-6 pb-28 pt-20">
     <!-- Top Bar -->
     <div class="flex items-center justify-between mb-8">
       <div>
         <h1 class="text-2xl font-bold text-gray-800">My Dashboard</h1>
         <p class="text-sm text-gray-500">Welcome, {{ userName }}! Here's your attendance overview.</p>
       </div>
-      <div class="flex items-center space-x-2">
-        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-forest-100 text-forest-600">
-          <i class="fas fa-id-card mr-1.5"></i>{{ studentId }}
-        </span>
+      <div class="flex items-center space-x-3">
         <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-leaf-100 text-leaf-600">
           {{ course }} &bull; Year {{ yearLevel }}
         </span>
@@ -98,13 +95,14 @@
   <script type="application/json" id="__chartLate">{{{chartLate}}}</script>
 
   <script>
+
     var chartLabels = JSON.parse(document.getElementById('__chartLabels').textContent);
     var chartPresent = JSON.parse(document.getElementById('__chartPresent').textContent);
     var chartLate = JSON.parse(document.getElementById('__chartLate').textContent);
 
     // Attendance rate
-    var totalEvents = {{ totalEvents }};
-    var attended = {{ attendedEvents }};
+    var totalEvents = Number('{{ totalEvents }}') || 0;
+    var attended = Number('{{ attendedEvents }}') || 0;
     var rate = totalEvents > 0 ? ((attended / totalEvents) * 100).toFixed(0) : 0;
     document.getElementById('attendanceRate').textContent = rate + '%';
 

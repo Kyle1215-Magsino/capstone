@@ -1,0 +1,829 @@
+<!-- ========== FACE BUBBLE — Messenger-style (2 tabs: Check-In + Quick Enroll) ========== -->
+<style>
+  @keyframes fbPulseRing {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(76, 118, 59, 0.5); }
+    70% { box-shadow: 0 0 0 16px rgba(76, 118, 59, 0); }
+  }
+  @keyframes fbEntryPop {
+    from { transform: scale(0) rotate(-180deg); opacity: 0; }
+    to { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  @keyframes fbFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  .fb-btn {
+    animation: fbPulseRing 2.5s ease-in-out infinite, fbEntryPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .fb-btn:hover {
+    animation: fbFloat 1.5s ease-in-out infinite;
+    transform: scale(1.08);
+  }
+  .fb-panel-anim {
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: bottom right;
+  }
+  .fb-panel-off {
+    transform: scale(0); opacity: 0; pointer-events: none; visibility: hidden;
+  }
+  .fb-panel-on {
+    transform: scale(1); opacity: 1; pointer-events: auto; visibility: visible;
+  }
+  #fbWrap.dragging, #fbWrap.dragging * {
+    cursor: grabbing !important; transition: none !important;
+  }
+  .fb-tab-active {
+    border-color: #4C763B; color: #2e4923; background-color: rgba(76,118,59,0.08);
+  }
+  .fb-tab-inactive {
+    border-color: transparent; color: #9ca3af;
+  }
+  .fb-tab-inactive:hover { color: #6b7280; background-color: #f9fafb; }
+
+  .bubble-top-margin {
+    margin-top: 120px !important;
+    transition: margin 0.3s;
+  }
+</style>
+
+<div id="fbWrap" class="fixed z-[150]" style="bottom: 24px; right: 24px;">
+
+  <!-- ======= Expanded Panel ======= -->
+  <div id="fbPanel" class="fb-panel-anim fb-panel-off mb-3 w-[360px] bg-white rounded-2xl shadow-2xl border border-gray-200/80 overflow-hidden" style="position:absolute; bottom:72px; right:0;">
+
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-forest-500 via-forest-600 to-dark-800 px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 bg-white/15 backdrop-blur-sm rounded-lg flex items-center justify-center">
+          <i class="fas fa-face-smile text-white text-sm"></i>
+        </div>
+        <div>
+          <p class="text-white text-sm font-bold leading-tight">Face Station</p>
+          <p class="text-white/40 text-[10px]" id="fbHeaderSub">Verify &amp; Enroll</p>
+        </div>
+      </div>
+      <button onclick="window._fb.toggle()" class="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition">
+        <i class="fas fa-minus text-xs"></i>
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex border-b border-gray-100">
+      <button onclick="window._fb.setTab('checkin')" id="fbTabCheckin" class="flex-1 py-2.5 text-xs font-semibold border-b-2 transition-all fb-tab-active">
+        <i class="fas fa-camera mr-1.5"></i>Check-In
+      </button>
+      <button onclick="window._fb.setTab('enroll')" id="fbTabEnroll" class="flex-1 py-2.5 text-xs font-semibold border-b-2 transition-all fb-tab-inactive">
+        <i class="fas fa-user-plus mr-1.5"></i>Quick Enroll
+      </button>
+    </div>
+
+    <!-- ====== CHECK-IN TAB CONTENT ====== -->
+    <div id="fbCheckinTab">
+      <!-- Event selector -->
+      <div class="px-3 pt-3 pb-2">
+        <select id="fbEventSel" class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-forest-400 outline-none">
+          <option value="">— Select event —</option>
+        </select>
+      </div>
+
+      <!-- Camera -->
+      <div class="relative bg-gray-900 mx-3 rounded-xl overflow-hidden" style="aspect-ratio:4/3;">
+        <video id="fbVid" autoplay muted playsinline class="w-full h-full object-cover" style="transform:scaleX(-1);"></video>
+        <canvas id="fbCvs" class="absolute top-0 left-0 w-full h-full" style="transform:scaleX(-1);"></canvas>
+        <!-- Oval guide -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div id="fbGuide" class="w-24 h-32 border-2 border-dashed border-white/20 rounded-[50%] transition-all duration-500"></div>
+        </div>
+        <!-- Status pill -->
+        <div class="absolute top-2 left-2">
+          <div class="bg-black/50 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-full inline-flex items-center">
+            <span id="fbDot" class="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-1.5 animate-pulse"></span>
+            <span id="fbCamTxt">Starting...</span>
+          </div>
+        </div>
+        <!-- Enrolled count -->
+        <div class="absolute top-2 right-2">
+          <div class="bg-black/50 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-full">
+            <i class="fas fa-users mr-1"></i><span id="fbFaceCount">0</span>
+          </div>
+        </div>
+        <!-- Match overlay -->
+        <div id="fbMatchOv" class="hidden absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+          <div class="flex items-center space-x-2.5">
+            <div id="fbMatchIco" class="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg flex-shrink-0 bg-green-500">
+              <i class="fas fa-check"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p id="fbMatchName" class="text-white font-bold text-sm truncate"></p>
+              <p id="fbMatchSub" class="text-white/60 text-[10px] truncate"></p>
+            </div>
+          </div>
+        </div>
+        <!-- Placeholder -->
+        <div id="fbPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-white/40">
+          <i class="fas fa-camera text-3xl mb-2"></i>
+          <p class="text-[11px]">Camera starting...</p>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="p-3">
+        <button onclick="window._fb.capture()" id="fbCaptureBtn" class="w-full bg-forest-600 hover:bg-forest-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center shadow-sm" disabled>
+          <i class="fas fa-camera mr-2"></i>Capture & Match
+        </button>
+        <div class="flex items-center justify-between mt-2">
+          <button onclick="window._fb.flip()" class="px-3 py-1.5 text-[11px] text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition">
+            <i class="fas fa-sync-alt mr-1"></i>Flip
+          </button>
+          <span class="text-[10px] text-gray-400" id="fbEvtLabel">Select event first</span>
+          <a href="/checkin" class="px-3 py-1.5 text-[11px] text-forest-600 hover:text-forest-700 hover:bg-forest-50 rounded-lg transition font-medium">
+            <i class="fas fa-expand mr-1"></i>Full Page
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== ENROLL TAB CONTENT ====== -->
+    <div id="fbEnrollTab" class="hidden">
+      <!-- Student search -->
+      <div class="px-3 pt-3 pb-2">
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fas fa-search text-xs"></i></span>
+          <input type="text" id="fbStudentSearch" placeholder="Search student name or ID..." class="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-forest-400 outline-none" autocomplete="off" />
+        </div>
+        <!-- Search results -->
+        <div id="fbStudentResults" class="hidden max-h-32 overflow-y-auto border border-gray-200 rounded-lg mt-1 bg-white shadow-sm"></div>
+      </div>
+
+      <!-- Selected student card -->
+      <div id="fbSelectedStudent" class="hidden px-3 pb-2">
+        <div class="p-2.5 bg-gradient-to-r from-forest-50 to-leaf-50 rounded-lg border border-forest-100">
+          <div class="flex items-center space-x-2.5">
+            <div id="fbStudentAvatar" class="w-9 h-9 rounded-full bg-forest-200 flex items-center justify-center text-forest-700 font-bold text-xs flex-shrink-0">?</div>
+            <div class="flex-1 min-w-0">
+              <p id="fbStudentName" class="text-sm font-semibold text-gray-800 truncate"></p>
+              <p id="fbStudentInfo" class="text-[10px] text-gray-500 truncate"></p>
+            </div>
+            <div id="fbStudentStatus"></div>
+            <button onclick="window._fb.clearStudent()" class="text-gray-400 hover:text-red-500 transition p-0.5">
+              <i class="fas fa-times text-xs"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Enroll camera -->
+      <div class="relative bg-gray-900 mx-3 rounded-xl overflow-hidden" style="aspect-ratio:4/3;">
+        <video id="fbEVid" autoplay muted playsinline class="w-full h-full object-cover" style="transform:scaleX(-1);"></video>
+        <canvas id="fbECvs" class="absolute top-0 left-0 w-full h-full" style="transform:scaleX(-1);"></canvas>
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div id="fbEGuide" class="w-24 h-32 border-2 border-dashed border-white/20 rounded-[50%] transition-all duration-500"></div>
+        </div>
+        <div class="absolute top-2 left-2">
+          <div class="bg-black/50 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-full inline-flex items-center">
+            <span id="fbEDot" class="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-1.5 animate-pulse"></span>
+            <span id="fbECamTxt">Starting...</span>
+          </div>
+        </div>
+        <div id="fbEPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-white/40">
+          <i class="fas fa-user-plus text-3xl mb-2"></i>
+          <p class="text-[11px]">Camera starting...</p>
+        </div>
+        <!-- Step overlay for enrollment -->
+        <div id="fbEStepOv" class="hidden absolute inset-0 bg-black/40 flex flex-col items-center justify-center">
+          <div id="fbEStepGuide" class="w-24 h-32 border-[3px] border-dashed border-white/30 rounded-[50%] transition-all duration-500 mb-3"></div>
+          <p id="fbEStepTitle" class="text-white text-sm font-bold"></p>
+          <p id="fbEStepSub" class="text-white/50 text-[10px] mt-1"></p>
+          <div class="flex space-x-2 mt-3">
+            <div id="fbEDot0" class="w-2 h-2 rounded-full bg-white/20 transition-all"></div>
+            <div id="fbEDot1" class="w-2 h-2 rounded-full bg-white/20 transition-all"></div>
+            <div id="fbEDot2" class="w-2 h-2 rounded-full bg-white/20 transition-all"></div>
+          </div>
+          <button onclick="window._fb.cancelEnroll()" class="mt-3 text-white/30 hover:text-white/70 text-[10px] transition">
+            <i class="fas fa-times mr-1"></i>Cancel
+          </button>
+        </div>
+        <!-- Success overlay -->
+        <div id="fbESuccessOv" class="hidden absolute inset-0 bg-green-600/90 flex items-center justify-center">
+          <div class="text-center">
+            <div class="w-14 h-14 rounded-full bg-white flex items-center justify-center mx-auto mb-3"><i class="fas fa-check text-green-600 text-xl"></i></div>
+            <p class="text-white text-sm font-bold">Face Enrolled!</p>
+            <p id="fbESuccessName" class="text-white/70 text-[10px] mt-1"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Enroll controls -->
+      <div class="p-3">
+        <button onclick="window._fb.startEnroll()" id="fbEnrollBtn" class="w-full bg-forest-600 hover:bg-forest-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center shadow-sm" disabled>
+          <i class="fas fa-user-plus mr-2"></i>Start Enrollment
+        </button>
+        <!-- Progress -->
+        <div id="fbEProgress" class="hidden mt-2">
+          <div class="w-full bg-gray-200 rounded-full h-1.5">
+            <div id="fbEBar" class="h-1.5 rounded-full bg-forest-500 transition-all duration-500" style="width:0%"></div>
+          </div>
+          <p class="text-[10px] text-gray-400 mt-1 text-center" id="fbEPct">0 / 3</p>
+        </div>
+        <div class="flex items-center justify-between mt-2">
+          <button onclick="window._fb.flipE()" class="px-3 py-1.5 text-[11px] text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition">
+            <i class="fas fa-sync-alt mr-1"></i>Flip
+          </button>
+          <span class="text-[10px] text-gray-400" id="fbEnrollCount">0 enrolled</span>
+          <a href="/face-enrollment" class="px-3 py-1.5 text-[11px] text-forest-600 hover:text-forest-700 hover:bg-forest-50 rounded-lg transition font-medium">
+            <i class="fas fa-expand mr-1"></i>Full Page
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= The Bubble Button ======= -->
+  <button onclick="window._fb.toggle()" id="fbBtn" class="fb-btn w-16 h-16 rounded-full bg-gradient-to-br from-forest-400 to-forest-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center relative group cursor-grab active:cursor-grabbing">
+    <i id="fbBtnIcon" class="fas fa-camera-retro text-xl transition-transform duration-300 group-hover:scale-110"></i>
+    <span id="fbBtnBadge" class="absolute top-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+      <span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+    </span>
+    <span class="absolute right-full mr-3 px-2.5 py-1.5 bg-gray-800 text-white text-[11px] font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
+      Face Station
+      <span class="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-2 bg-gray-800 rotate-45"></span>
+    </span>
+  </button>
+</div>
+
+<!-- Notification Toast (for pages that don't have their own) -->
+<div id="fbToast" class="fixed top-6 right-6 z-[160] pointer-events-none transition-all duration-500 translate-x-[120%] opacity-0">
+  <div class="bg-white rounded-xl shadow-2xl border max-w-sm pointer-events-auto overflow-hidden">
+    <div class="flex items-start p-4 space-x-3">
+      <div id="fbToastIcon" class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"></div>
+      <div class="flex-1 min-w-0">
+        <p id="fbToastTitle" class="text-sm font-semibold text-gray-800"></p>
+        <p id="fbToastMsg" class="text-xs text-gray-500 mt-0.5"></p>
+      </div>
+      <button onclick="window._fb.hideToast()" class="text-gray-400 hover:text-gray-600 transition p-1"><i class="fas fa-times text-xs"></i></button>
+    </div>
+    <div id="fbToastBar" class="h-1 bg-green-500 transition-all duration-100" style="width:100%"></div>
+  </div>
+</div>
+
+<!-- face-api.js (loaded once for the bubble) -->
+<script src="/js/face-api.min.js"></script>
+
+<script>
+// ====================== FACE BUBBLE (global, self-contained) ======================
+window._fb = (function() {
+  var isOpen = false, activeTab = 'checkin';
+  var stream = null, eStream = null;
+  var facing = 'user', eFacing = 'user';
+  var modelsReady = false;
+  var enrolledFaces = [];
+  var bubbleEvents = [];
+  var selectedStudent = null;
+  var allSearchStudents = [];
+  var enrollCancelled = false;
+  var toastTm = null, toastBarTm = null;
+
+  // ---- Helpers ----
+  function waitVid(v) {
+    return new Promise(function(ok) {
+      if (v.readyState >= 2) { ok(); return; }
+      v.addEventListener('loadeddata', function(){ ok(); }, { once: true });
+      setTimeout(ok, 8000);
+    });
+  }
+  function camStatus(dot, txt, c, t) {
+    var m = { green:'bg-green-400', yellow:'bg-yellow-400', red:'bg-red-400' };
+    document.getElementById(dot).className = 'w-1.5 h-1.5 rounded-full mr-1.5 animate-pulse ' + (m[c]||'bg-gray-400');
+    document.getElementById(txt).textContent = t;
+  }
+
+  // ---- Toast ----
+  function showToast(type, title, msg, dur) {
+    dur = dur || 4000;
+    var t = document.getElementById('fbToast');
+    var ico = document.getElementById('fbToastIcon');
+    var bar = document.getElementById('fbToastBar');
+    document.getElementById('fbToastTitle').textContent = title;
+    document.getElementById('fbToastMsg').textContent = msg;
+    if (type === 'success') {
+      ico.className = 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-green-100 text-green-600';
+      ico.innerHTML = '<i class="fas fa-check-circle text-lg"></i>'; bar.className = 'h-1 bg-green-500 transition-all duration-100';
+    } else if (type === 'error') {
+      ico.className = 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-red-100 text-red-600';
+      ico.innerHTML = '<i class="fas fa-exclamation-circle text-lg"></i>'; bar.className = 'h-1 bg-red-500 transition-all duration-100';
+    } else {
+      ico.className = 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-amber-100 text-amber-600';
+      ico.innerHTML = '<i class="fas fa-info-circle text-lg"></i>'; bar.className = 'h-1 bg-amber-500 transition-all duration-100';
+    }
+    bar.style.width = '100%';
+    t.classList.remove('translate-x-[120%]', 'opacity-0');
+    if (toastBarTm) clearInterval(toastBarTm);
+    var rem = dur, step = 50;
+    toastBarTm = setInterval(function(){ rem -= step; bar.style.width = Math.max(0,(rem/dur)*100)+'%'; if(rem<=0)clearInterval(toastBarTm); }, step);
+    if (toastTm) clearTimeout(toastTm);
+    toastTm = setTimeout(function(){ hideToast(); }, dur);
+  }
+  function hideToast() {
+    document.getElementById('fbToast').classList.add('translate-x-[120%]', 'opacity-0');
+    if(toastTm)clearTimeout(toastTm); if(toastBarTm)clearInterval(toastBarTm);
+  }
+
+  // ---- Model loading ----
+  async function loadModels() {
+    if (modelsReady) return;
+    try {
+      await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
+      await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+      await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+      modelsReady = true;
+    } catch(e) { console.error('Face bubble model load err:', e); }
+  }
+
+  // ---- Load enrolled faces ----
+  async function loadFaces() {
+    try {
+      var r = await fetch('/api/students/faces');
+      var d = await r.json();
+      if (d.success) {
+        enrolledFaces = d.students.map(function(s){
+          return { id:s.id, studentId:s.studentId, name:s.firstName+' '+s.lastName,
+            course:s.course, yearLevel:s.yearLevel, descriptor: new Float32Array(JSON.parse(s.faceData)) };
+        });
+        document.getElementById('fbFaceCount').textContent = enrolledFaces.length;
+        document.getElementById('fbEnrollCount').textContent = enrolledFaces.length + ' enrolled';
+      }
+    } catch(e) { console.error('Load faces err:', e); }
+  }
+
+  // ---- Load events ----
+  async function loadEvents() {
+    try {
+      var r = await fetch('/api/events/active');
+      var d = await r.json();
+      if (d.success) {
+        bubbleEvents = d.events;
+        var sel = document.getElementById('fbEventSel');
+        sel.innerHTML = '<option value="">— Select event —</option>';
+        d.events.forEach(function(e) {
+          var o = document.createElement('option'); o.value = e.id;
+          o.textContent = e.eventName + ' — ' + e.eventDate; sel.appendChild(o);
+        });
+      }
+    } catch(e) { console.error('Load events err:', e); }
+  }
+
+  // ---- Camera ----
+  async function startCam(vidId, placeholderId, dotId, txtId, f) {
+    stopCam(vidId, placeholderId);
+    await new Promise(function(r){ setTimeout(r, 200); });
+    try {
+      var s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: f, width:{ideal:640}, height:{ideal:480} } });
+      var v = document.getElementById(vidId);
+      v.srcObject = s; await v.play().catch(function(){}); await waitVid(v);
+      document.getElementById(placeholderId).classList.add('hidden');
+      camStatus(dotId, txtId, 'green', 'Ready');
+      return s;
+    } catch(e) {
+      camStatus(dotId, txtId, 'red', 'Camera error');
+      console.error('Cam err:', e); return null;
+    }
+  }
+  function stopCam(vidId, placeholderId, s) {
+    if (s) s.getTracks().forEach(function(t){ try{t.stop();}catch(e){} });
+    var v = document.getElementById(vidId);
+    if (v) v.srcObject = null;
+    document.getElementById(placeholderId).classList.remove('hidden');
+  }
+
+  // ---- Open / Close ----
+  async function toggle() {
+    isOpen = !isOpen;
+    var panel = document.getElementById('fbPanel');
+    var icon = document.getElementById('fbBtnIcon');
+    if (isOpen) {
+      panel.classList.remove('fb-panel-off'); panel.classList.add('fb-panel-on');
+      icon.className = 'fas fa-times text-xl transition-transform duration-300 group-hover:scale-110';
+      await loadModels();
+      await loadFaces();
+      await loadEvents();
+      if (activeTab === 'checkin') {
+        stream = await startCam('fbVid', 'fbPlaceholder', 'fbDot', 'fbCamTxt', facing);
+        if (modelsReady && stream) document.getElementById('fbCaptureBtn').disabled = false;
+      } else {
+        eStream = await startCam('fbEVid', 'fbEPlaceholder', 'fbEDot', 'fbECamTxt', eFacing);
+      }
+      // Update event label
+      var eid = document.getElementById('fbEventSel').value;
+      if (eid) {
+        var ev = bubbleEvents.find(function(e){ return e.id == eid; });
+        document.getElementById('fbEvtLabel').textContent = ev ? ev.eventName : '';
+      }
+    } else {
+      panel.classList.add('fb-panel-off'); panel.classList.remove('fb-panel-on');
+      icon.className = 'fas fa-camera-retro text-xl transition-transform duration-300 group-hover:scale-110';
+      if (stream) { stopCam('fbVid', 'fbPlaceholder', stream); stream = null; }
+      if (eStream) { stopCam('fbEVid', 'fbEPlaceholder', eStream); eStream = null; }
+    }
+  }
+
+  // ---- Tab switching ----
+  async function setTab(tab) {
+    activeTab = tab;
+    var tc = document.getElementById('fbTabCheckin');
+    var te = document.getElementById('fbTabEnroll');
+    var cc = document.getElementById('fbCheckinTab');
+    var ce = document.getElementById('fbEnrollTab');
+    if (tab === 'checkin') {
+      tc.className = 'flex-1 py-2.5 text-xs font-semibold border-b-2 transition-all fb-tab-active';
+      te.className = 'flex-1 py-2.5 text-xs font-semibold border-b-2 transition-all fb-tab-inactive';
+      cc.classList.remove('hidden'); ce.classList.add('hidden');
+      if (eStream) { stopCam('fbEVid', 'fbEPlaceholder', eStream); eStream = null; }
+      if (isOpen && !stream) {
+        stream = await startCam('fbVid', 'fbPlaceholder', 'fbDot', 'fbCamTxt', facing);
+        if (modelsReady && stream) document.getElementById('fbCaptureBtn').disabled = false;
+      }
+    } else {
+      te.className = 'flex-1 py-2.5 text-xs font-semibold border-b-2 transition-all fb-tab-active';
+      tc.className = 'flex-1 py-2.5 text-xs font-semibold border-b-2 transition-all fb-tab-inactive';
+      ce.classList.remove('hidden'); cc.classList.add('hidden');
+      if (stream) { stopCam('fbVid', 'fbPlaceholder', stream); stream = null; }
+      if (isOpen && !eStream) {
+        eStream = await startCam('fbEVid', 'fbEPlaceholder', 'fbEDot', 'fbECamTxt', eFacing);
+      }
+      updateEnrollBtn();
+    }
+  }
+
+  // ---- Check-In: Capture & Match ----
+  async function capture() {
+    if (!modelsReady || !stream) return;
+    var vid = document.getElementById('fbVid');
+    var cvs = document.getElementById('fbCvs');
+    var guide = document.getElementById('fbGuide');
+    var mOv = document.getElementById('fbMatchOv');
+    var btn = document.getElementById('fbCaptureBtn');
+
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Scanning...';
+    camStatus('fbDot', 'fbCamTxt', 'yellow', 'Scanning...');
+    guide.className = 'w-24 h-32 border-2 border-solid border-yellow-400 rounded-[50%] transition-all duration-500';
+    mOv.classList.add('hidden');
+
+    try {
+      await new Promise(function(r){ requestAnimationFrame(function(){ setTimeout(r,0); }); });
+      var det = null;
+      for (var i = 0; i < 3; i++) {
+        det = await faceapi.detectSingleFace(vid, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+          .withFaceLandmarks().withFaceDescriptor();
+        if (det) break;
+        await new Promise(function(r){ setTimeout(r,300); });
+      }
+      var ctx = cvs.getContext('2d');
+      cvs.width = vid.videoWidth; cvs.height = vid.videoHeight;
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+      if (!det) {
+        guide.className = 'w-24 h-32 border-2 border-dashed border-red-400 rounded-[50%] transition-all duration-500';
+        camStatus('fbDot','fbCamTxt','red','No face detected');
+        showToast('error','No Face','Position face inside the guide.');
+        setTimeout(function(){ guide.className='w-24 h-32 border-2 border-dashed border-white/20 rounded-[50%] transition-all duration-500'; },2000);
+        btn.disabled=false; btn.innerHTML='<i class="fas fa-camera mr-2"></i>Capture & Match'; return;
+      }
+      var box=det.detection.box;
+      ctx.strokeStyle='#4C763B'; ctx.lineWidth=2; ctx.strokeRect(box.x,box.y,box.width,box.height);
+
+      if (enrolledFaces.length===0) {
+        camStatus('fbDot','fbCamTxt','yellow','No faces enrolled');
+        showToast('warn','No Enrolled Faces','Go to Face Enrollment to register faces.');
+        guide.className='w-24 h-32 border-2 border-dashed border-white/20 rounded-[50%] transition-all duration-500';
+        btn.disabled=false; btn.innerHTML='<i class="fas fa-camera mr-2"></i>Capture & Match'; return;
+      }
+
+      var qd=det.descriptor, bestM=null, bestD=Infinity;
+      enrolledFaces.forEach(function(f){ var d=faceapi.euclideanDistance(qd,f.descriptor); if(d<bestD){bestD=d;bestM=f;} });
+
+      if (bestM && bestD < 0.45) {
+        var conf=((1-bestD)*100).toFixed(1);
+        guide.className='w-24 h-32 border-2 border-solid border-green-400 rounded-[50%] transition-all duration-500';
+        camStatus('fbDot','fbCamTxt','green','Matched!');
+        ctx.strokeStyle='#22c55e'; ctx.lineWidth=3; ctx.strokeRect(box.x,box.y,box.width,box.height);
+        ctx.fillStyle='rgba(34,197,94,0.15)'; ctx.fillRect(box.x,box.y,box.width,box.height);
+
+        document.getElementById('fbMatchIco').className='w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg flex-shrink-0 bg-green-500';
+        document.getElementById('fbMatchIco').innerHTML='<i class="fas fa-check"></i>';
+        document.getElementById('fbMatchName').textContent=bestM.name;
+        document.getElementById('fbMatchSub').textContent=bestM.studentId+' \u2022 '+conf+'% match';
+        mOv.classList.remove('hidden');
+        showToast('success','Face Matched',bestM.name+' ('+conf+'%)');
+
+        var eid=document.getElementById('fbEventSel').value;
+        if (eid) {
+          try {
+            var resp=await fetch('/api/checkin',{ method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ studentIdentifier:bestM.studentId, eventId:eid, verificationMethod:'facial', locationLat:null, locationLng:null })
+            });
+            var data=await resp.json();
+            if(data.success){
+              document.getElementById('fbMatchSub').textContent='Checked in! \u2014 '+conf+'%';
+              showToast('success','Checked In!',data.message);
+              // Refresh main page feed if available
+              if(typeof refreshFeed==='function') refreshFeed();
+            } else {
+              document.getElementById('fbMatchSub').textContent=data.message;
+              showToast('error','Failed',data.message);
+            }
+          } catch(e){ document.getElementById('fbMatchSub').textContent='Network error'; }
+        }
+        setTimeout(function(){ mOv.classList.add('hidden'); guide.className='w-24 h-32 border-2 border-dashed border-white/20 rounded-[50%] transition-all duration-500'; ctx.clearRect(0,0,cvs.width,cvs.height); camStatus('fbDot','fbCamTxt','green','Ready'); },3500);
+      } else {
+        guide.className='w-24 h-32 border-2 border-dashed border-red-400 rounded-[50%] transition-all duration-500';
+        ctx.strokeStyle='#ef4444'; ctx.lineWidth=3; ctx.strokeRect(box.x,box.y,box.width,box.height);
+        document.getElementById('fbMatchIco').className='w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg flex-shrink-0 bg-red-500';
+        document.getElementById('fbMatchIco').innerHTML='<i class="fas fa-times"></i>';
+        document.getElementById('fbMatchName').textContent='Not Recognized';
+        document.getElementById('fbMatchSub').textContent='Try again or use other method';
+        mOv.classList.remove('hidden');
+        camStatus('fbDot','fbCamTxt','red','No match'); showToast('error','No Match','Face not recognized.');
+        setTimeout(function(){ mOv.classList.add('hidden'); guide.className='w-24 h-32 border-2 border-dashed border-white/20 rounded-[50%] transition-all duration-500'; ctx.clearRect(0,0,cvs.width,cvs.height); camStatus('fbDot','fbCamTxt','green','Ready'); },3000);
+      }
+    } catch(err) {
+      console.error('Bubble capture err:',err);
+      camStatus('fbDot','fbCamTxt','red','Error');
+      guide.className='w-24 h-32 border-2 border-dashed border-white/20 rounded-[50%] transition-all duration-500';
+    }
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-camera mr-2"></i>Capture & Match';
+  }
+
+  // ---- Enroll: Student Search ----
+  document.getElementById('fbStudentSearch').addEventListener('input', async function() {
+    var q = this.value.trim();
+    var box = document.getElementById('fbStudentResults');
+    if (q.length < 2) { box.classList.add('hidden'); return; }
+    try {
+      var r = await fetch('/api/students/search?q=' + encodeURIComponent(q));
+      var students = await r.json();
+      if (!students.length) { box.innerHTML='<div class="px-3 py-2 text-xs text-gray-400 text-center">No results</div>'; box.classList.remove('hidden'); return; }
+      box.innerHTML = students.map(function(s) {
+        var has = s.faceData ? true : false;
+        return '<div class="px-3 py-2 hover:bg-forest-50 cursor-pointer flex items-center space-x-2 border-b border-gray-50 last:border-0 text-xs" onclick="window._fb.pickStudent('+s.id+',\''+s.firstName.replace(/'/g,"\\'")+'\',\''+s.lastName.replace(/'/g,"\\'")+'\',\''+s.studentId+'\',\''+s.course+'\','+s.yearLevel+','+(has?'true':'false')+')">' +
+          '<div class="w-7 h-7 rounded-full '+(has?'bg-green-100 text-green-600':'bg-forest-100 text-forest-600')+' flex items-center justify-center font-bold flex-shrink-0">'+(has?'<i class="fas fa-check text-[10px]"></i>':s.firstName[0]+s.lastName[0])+'</div>' +
+          '<div class="flex-1 min-w-0"><p class="font-medium text-gray-800 truncate">'+s.firstName+' '+s.lastName+'</p><p class="text-gray-400">'+s.studentId+' \u2022 '+s.course+'</p></div>' +
+          (has?'<span class="text-[10px] text-green-500">Enrolled</span>':'') +
+        '</div>';
+      }).join('');
+      box.classList.remove('hidden');
+    } catch(e) { console.error('Search err:',e); }
+  });
+
+  function pickStudent(id, fn, ln, sid, course, yr, hasF) {
+    selectedStudent = { id:id, firstName:fn, lastName:ln, studentId:sid, course:course, yearLevel:yr, hasFace:hasF };
+    document.getElementById('fbStudentResults').classList.add('hidden');
+    document.getElementById('fbStudentSearch').value = '';
+    document.getElementById('fbSelectedStudent').classList.remove('hidden');
+    document.getElementById('fbStudentAvatar').textContent = fn[0]+ln[0];
+    document.getElementById('fbStudentName').textContent = fn+' '+ln;
+    document.getElementById('fbStudentInfo').textContent = sid+' \u2022 '+course+' \u2022 Year '+yr;
+    document.getElementById('fbStudentStatus').innerHTML = hasF
+      ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-600"><i class="fas fa-check mr-0.5"></i>Enrolled</span>'
+      : '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-orange-100 text-orange-600"><i class="fas fa-exclamation-circle mr-0.5"></i>New</span>';
+    updateEnrollBtn();
+  }
+
+  function clearStudent() {
+    selectedStudent = null;
+    document.getElementById('fbSelectedStudent').classList.add('hidden');
+    updateEnrollBtn();
+  }
+
+  function updateEnrollBtn() {
+    var btn = document.getElementById('fbEnrollBtn');
+    if (selectedStudent && modelsReady) {
+      btn.disabled = false;
+      btn.innerHTML = selectedStudent.hasFace
+        ? '<i class="fas fa-redo mr-2"></i>Re-Enroll Face'
+        : '<i class="fas fa-user-plus mr-2"></i>Start Enrollment';
+    } else {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-user-plus mr-2"></i>Start Enrollment';
+    }
+  }
+
+  // ---- Enroll: pose helpers ----
+  function ptDist(a,b){ return Math.sqrt(Math.pow(a.x-b.x,2)+Math.pow(a.y-b.y,2)); }
+  function estimateYaw(pts){ var fW=pts[16].x-pts[0].x; if(fW<1)return 0; var c=(pts[0].x+pts[16].x)/2; return (pts[30].x-c)/(fW/2); }
+
+  var STEPS=[
+    { title:'Look Straight', sub:'Face forward inside the oval', check:function(p){ return Math.abs(estimateYaw(p))<0.12; }, color:'border-blue-400', dot:'bg-blue-400' },
+    { title:'Turn Right', sub:'Slowly turn your head right', check:function(p){ return estimateYaw(p)<-0.13; }, color:'border-yellow-400', dot:'bg-yellow-400' },
+    { title:'Turn Left',  sub:'Slowly turn your head left',  check:function(p){ return estimateYaw(p)>0.13;  }, color:'border-purple-400', dot:'bg-purple-400' }
+  ];
+
+  function setStepUI(idx, status) {
+    var s = STEPS[idx];
+    var g = document.getElementById('fbEStepGuide');
+    document.getElementById('fbEStepTitle').textContent = s.title;
+    document.getElementById('fbEStepSub').textContent = s.sub;
+    g.className = 'w-24 h-32 border-[3px] rounded-[50%] transition-all duration-500 ';
+    if (status==='waiting') g.classList.add('border-dashed','border-white/30');
+    else if (status==='active') g.classList.add('border-dashed', s.color);
+    else if (status==='done') g.classList.add('border-solid','border-green-400');
+    for (var i=0;i<3;i++){
+      var d=document.getElementById('fbEDot'+i);
+      if(i<idx)d.className='w-2 h-2 rounded-full bg-green-400 transition-all';
+      else if(i===idx)d.className='w-2.5 h-2.5 rounded-full animate-pulse transition-all '+s.dot;
+      else d.className='w-2 h-2 rounded-full bg-white/20 transition-all';
+    }
+  }
+
+  // ---- Enroll: flow ----
+  async function startEnroll() {
+    if (!selectedStudent || !modelsReady || !eStream) return;
+    enrollCancelled = false;
+    var btn = document.getElementById('fbEnrollBtn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enrolling...';
+    document.getElementById('fbEProgress').classList.remove('hidden');
+    document.getElementById('fbESuccessOv').classList.add('hidden');
+
+    var vid = document.getElementById('fbEVid');
+    var stepOv = document.getElementById('fbEStepOv');
+    stepOv.classList.remove('hidden');
+    var descriptors = [];
+
+    for (var si = 0; si < STEPS.length; si++) {
+      if (enrollCancelled) break;
+      setStepUI(si, 'waiting');
+      document.getElementById('fbEBar').style.width = ((si/3)*100)+'%';
+      document.getElementById('fbEPct').textContent = si+' / 3';
+
+      var done = false;
+      for (var a = 0; a < 50; a++) {
+        if (enrollCancelled) break;
+        await new Promise(function(r){ requestAnimationFrame(function(){ setTimeout(r,0); }); });
+        try {
+          var det = await faceapi.detectSingleFace(vid, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+            .withFaceLandmarks().withFaceDescriptor();
+          if (!det) { setStepUI(si,'waiting'); document.getElementById('fbEStepSub').textContent='No face \u2014 move closer'; await new Promise(function(r){setTimeout(r,250);}); continue; }
+          if (STEPS[si].check(det.landmarks.positions)) {
+            setStepUI(si,'active'); document.getElementById('fbEStepSub').textContent='Hold still...';
+            await new Promise(function(r){setTimeout(r,300);});
+            await new Promise(function(r){ requestAnimationFrame(function(){ setTimeout(r,0); }); });
+            var c2 = await faceapi.detectSingleFace(vid, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+              .withFaceLandmarks().withFaceDescriptor();
+            if (c2 && STEPS[si].check(c2.landmarks.positions)) {
+              descriptors.push(Array.from(c2.descriptor));
+              setStepUI(si,'done');
+              document.getElementById('fbEStepTitle').textContent='\u2713 '+STEPS[si].title;
+              done=true; await new Promise(function(r){setTimeout(r,400);}); break;
+            }
+          } else { setStepUI(si,'waiting'); }
+        } catch(e) { console.error('Enroll step err:',e); }
+        await new Promise(function(r){setTimeout(r,350);});
+      }
+      if(!done && !enrollCancelled){
+        stepOv.classList.add('hidden');
+        document.getElementById('fbEProgress').classList.add('hidden');
+        showToast('error','Timeout','Could not capture: '+STEPS[si].title);
+        btn.disabled=false; btn.innerHTML='<i class="fas fa-user-plus mr-2"></i>Start Enrollment';
+        updateEnrollBtn(); return;
+      }
+    }
+
+    stepOv.classList.add('hidden');
+    if (enrollCancelled) { document.getElementById('fbEProgress').classList.add('hidden'); updateEnrollBtn(); return; }
+
+    // Save
+    document.getElementById('fbEBar').style.width='100%';
+    document.getElementById('fbEPct').textContent='3 / 3';
+
+    if (!descriptors.length) { showToast('error','Failed','No face data captured.'); document.getElementById('fbEProgress').classList.add('hidden'); updateEnrollBtn(); return; }
+
+    var avg = new Array(128).fill(0);
+    descriptors.forEach(function(d){ d.forEach(function(v,i){ avg[i]+=v; }); });
+    avg.forEach(function(v,i){ avg[i]=v/descriptors.length; });
+
+    try {
+      var resp = await fetch('/api/students/'+selectedStudent.id+'/face', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ faceData: JSON.stringify(avg) })
+      });
+      var data = await resp.json();
+      if (data.success) {
+        document.getElementById('fbESuccessName').textContent = selectedStudent.firstName+' '+selectedStudent.lastName;
+        document.getElementById('fbESuccessOv').classList.remove('hidden');
+        showToast('success','Face Enrolled!',selectedStudent.firstName+' '+selectedStudent.lastName);
+        selectedStudent.hasFace = true;
+        document.getElementById('fbStudentStatus').innerHTML = '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-600"><i class="fas fa-check mr-0.5"></i>Enrolled</span>';
+        loadFaces();
+        // Refresh main page lists if available
+        if (typeof loadEnrolledFaces === 'function') loadEnrolledFaces();
+        if (typeof renderStudentList === 'function' && typeof allStudents !== 'undefined') {
+          var idx = allStudents.findIndex(function(s){return s.id===selectedStudent.id;});
+          if(idx!==-1) allStudents[idx].faceData = JSON.stringify(avg);
+          renderStudentList(allStudents);
+        }
+        setTimeout(function(){ document.getElementById('fbESuccessOv').classList.add('hidden'); },3000);
+      } else {
+        showToast('error','Failed',data.message||'Could not save face data.');
+      }
+    } catch(e) { showToast('error','Network Error','Could not connect to server.'); }
+
+    document.getElementById('fbEProgress').classList.add('hidden');
+    updateEnrollBtn();
+  }
+
+  function cancelEnroll() { enrollCancelled = true; }
+
+  // ---- Flip cameras ----
+  async function flip() { facing = facing==='user'?'environment':'user'; if(stream){stopCam('fbVid','fbPlaceholder',stream);} stream=await startCam('fbVid','fbPlaceholder','fbDot','fbCamTxt',facing); if(modelsReady&&stream)document.getElementById('fbCaptureBtn').disabled=false; }
+  async function flipE() { eFacing = eFacing==='user'?'environment':'user'; if(eStream){stopCam('fbEVid','fbEPlaceholder',eStream);} eStream=await startCam('fbEVid','fbEPlaceholder','fbEDot','fbECamTxt',eFacing); }
+
+  // ---- Event select label ----
+  document.getElementById('fbEventSel').addEventListener('change', function() {
+    var eid = this.value;
+    if (eid) {
+      var ev = bubbleEvents.find(function(e){ return e.id == eid; });
+      document.getElementById('fbEvtLabel').textContent = ev ? ev.eventName : '';
+    } else {
+      document.getElementById('fbEvtLabel').textContent = 'Select event first';
+    }
+  });
+
+  // ---- Draggable ----
+  var wrap = document.getElementById('fbWrap');
+  var bBtn = document.getElementById('fbBtn');
+  var dragging=false, startX, startY, origX, origY, moved=false;
+  function dStart(e){
+    var t=e.touches?e.touches[0]:e; startX=t.clientX; startY=t.clientY;
+    var r=wrap.getBoundingClientRect(); origX=r.left; origY=r.top; moved=false;
+    document.addEventListener('mousemove',dMove); document.addEventListener('mouseup',dEnd);
+    document.addEventListener('touchmove',dMove,{passive:false}); document.addEventListener('touchend',dEnd);
+  }
+  function dMove(e){
+    e.preventDefault(); var t=e.touches?e.touches[0]:e;
+    var dx=t.clientX-startX, dy=t.clientY-startY;
+    if(Math.abs(dx)>4||Math.abs(dy)>4){moved=true;dragging=true;wrap.classList.add('dragging');}
+    if(dragging){
+      var nx=Math.max(0,Math.min(origX+dx,window.innerWidth-80));
+      var ny=Math.max(0,Math.min(origY+dy,window.innerHeight-80));
+      wrap.style.left=nx+'px'; wrap.style.top=ny+'px'; wrap.style.right='auto'; wrap.style.bottom='auto';
+    }
+  }
+  function dEnd(){
+    document.removeEventListener('mousemove',dMove); document.removeEventListener('mouseup',dEnd);
+    document.removeEventListener('touchmove',dMove); document.removeEventListener('touchend',dEnd);
+    if(dragging){
+      var r=wrap.getBoundingClientRect(); var p=document.getElementById('fbPanel');
+      if(r.left+r.width/2<window.innerWidth/2){wrap.style.left='24px';wrap.style.right='auto';p.style.right='auto';p.style.left='0';}
+      else{wrap.style.left='auto';wrap.style.right='24px';p.style.left='auto';p.style.right='0';}
+      // Space awareness: if bubble is near top, push content down
+      var mainContent = document.querySelector('.main-content, .dashboard-content, main, .md\:ml-64');
+      if (r.top < 100) {
+        if (mainContent) mainContent.classList.add('bubble-top-margin');
+      } else {
+        if (mainContent) mainContent.classList.remove('bubble-top-margin');
+      }
+    }
+    dragging=false; wrap.classList.remove('dragging');
+  }
+  bBtn.addEventListener('mousedown',dStart);
+  bBtn.addEventListener('touchstart',dStart,{passive:false});
+  bBtn.addEventListener('click',function(e){ if(moved){e.preventDefault();e.stopPropagation();moved=false;} },true);
+
+  // ---- Public API ----
+  return {
+    toggle: toggle,
+    setTab: setTab,
+    capture: capture,
+    flip: flip,
+    flipE: flipE,
+    pickStudent: pickStudent,
+    clearStudent: clearStudent,
+    startEnroll: startEnroll,
+    cancelEnroll: cancelEnroll,
+    hideToast: hideToast,
+    showToast: showToast
+  };
+})();
+
+(function() {
+  // Listen for bubble position changes and adjust main content margin
+  function updateBubbleMargin() {
+    var wrap = document.getElementById('fbWrap');
+    var mainContent = document.querySelector('.md\:ml-64, .main-content, .dashboard-content, main');
+    if (!wrap || !mainContent) return;
+    var r = wrap.getBoundingClientRect();
+    if (r.top < 100) {
+      mainContent.classList.add('bubble-top-margin');
+    } else {
+      mainContent.classList.remove('bubble-top-margin');
+    }
+  }
+  // Observe bubble position changes
+  var wrap = document.getElementById('fbWrap');
+  if (wrap) {
+    var observer = new MutationObserver(updateBubbleMargin);
+    observer.observe(wrap, { attributes: true, attributeFilter: ['style', 'class'] });
+    window.addEventListener('resize', updateBubbleMargin);
+    updateBubbleMargin();
+  }
+})();
+</script>

@@ -80,10 +80,10 @@ router.post("/students/:id/edit", officerOnly, updateStudent);
 router.post("/students/:id/delete", officerOnly, deleteStudent);
 router.get("/api/students/search", officerOnly, searchStudentsAPI);
 router.post("/api/students/:id/face", officerOnly, saveFaceData);
-router.get("/api/students/faces", officerOnly, getFaceData);
+router.get("/api/students/faces", requireAuth, getFaceData);
 
 // Event routes
-import { eventsPage, addEventPage, createEvent, viewEvent, editEventPage, updateEvent, deleteEvent } from "../controllers/eventController.js";
+import { eventsPage, addEventPage, createEvent, viewEvent, editEventPage, updateEvent, deleteEvent, activeEventsAPI } from "../controllers/eventController.js";
 
 router.get("/events", officerOnly, eventsPage);
 router.get("/events/add", officerOnly, addEventPage);
@@ -92,6 +92,7 @@ router.get("/events/:id", officerOnly, viewEvent);
 router.get("/events/:id/edit", officerOnly, editEventPage);
 router.post("/events/:id/edit", officerOnly, updateEvent);
 router.post("/events/:id/delete", officerOnly, deleteEvent);
+router.get("/api/events/active", requireAuth, activeEventsAPI);
 
 // Attendance routes
 import { checkinPage, processCheckin, liveAttendance, attendanceLogsPage, reportsPage, faceEnrollmentPage } from "../controllers/attendanceController.js";

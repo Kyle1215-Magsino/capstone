@@ -1,0 +1,108 @@
+<!-- UNIVERSAL MESSENGER-STYLE BUBBLE -->
+<style>
+  #univBubbleWrap {
+    position: fixed; z-index: 9999; bottom: 24px; right: 24px;
+    touch-action: none;
+  }
+  #univBubbleBtn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4C763B 60%, #1e293b 100%);
+    color: #fff;
+    box-shadow: 0 4px 24px 0 rgba(76,118,59,0.18);
+    border: none;
+    outline: none;
+    cursor: grab;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    transition: box-shadow 0.2s, transform 0.2s;
+    animation: bubblePop 0.5s cubic-bezier(.34,1.56,.64,1);
+    min-width: 56px; min-height: 56px;
+  }
+  #univBubbleBtn:active { cursor: grabbing; transform: scale(0.96); }
+  @keyframes bubblePop {
+    from { transform: scale(0) rotate(-180deg); opacity: 0; }
+    to { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  #univBubblePanel {
+    display: none;
+    position: absolute; bottom: 80px; right: 0;
+    width: 320px; max-width: 95vw;
+    background: #fff; border-radius: 1rem;
+    box-shadow: 0 8px 32px 0 rgba(30,41,59,0.18);
+    border: 1px solid #e5e7eb;
+    padding: 1.5rem;
+    z-index: 10000;
+  }
+  #univBubblePanel.open { display: block; animation: bubblePop 0.4s; }
+  @media (max-width: 600px) {
+    #univBubbleWrap { bottom: 12px; right: 12px; }
+    #univBubbleBtn { width: 52px; height: 52px; font-size: 1.5rem; }
+    #univBubblePanel {
+      width: 98vw; left: 1vw; right: 1vw; bottom: 64px; border-radius: 1rem;
+      padding: 1rem;
+    }
+  }
+</style>
+<div id="univBubbleWrap">
+  <button id="univBubbleBtn" title="Open Bubble" type="button">
+    <i class="fas fa-comment-dots"></i>
+  </button>
+  <div id="univBubblePanel">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">
+      <i class="fas fa-user-circle text-2xl text-forest-400"></i>
+      <span style="font-weight:600;">Messenger Bubble</span>
+    </div>
+    <div style="color:#64748b;">This is a universal floating bubble.<br>Replace this panel with your desired content.</div>
+  </div>
+</div>
+<script>
+(function(){
+  var wrap = document.getElementById('univBubbleWrap');
+  var btn = document.getElementById('univBubbleBtn');
+  var panel = document.getElementById('univBubblePanel');
+  var dragging = false, startX, startY, origX, origY, moved = false;
+  btn.onclick = function(e){
+    panel.classList.toggle('open');
+    // On mobile, scroll panel into view
+    if(panel.classList.contains('open') && window.innerWidth < 600){
+      setTimeout(function(){ panel.scrollIntoView({behavior:'smooth',block:'center'}); }, 100);
+    }
+  };
+  // Drag logic
+  btn.addEventListener('mousedown', dStart);
+  btn.addEventListener('touchstart', dStart, {passive:false});
+  function dStart(e){
+    var t = e.touches ? e.touches[0] : e;
+    startX = t.clientX; startY = t.clientY;
+    var r = wrap.getBoundingClientRect();
+    origX = r.left; origY = r.top;
+    moved = false;
+    document.addEventListener('mousemove', dMove);
+    document.addEventListener('mouseup', dEnd);
+    document.addEventListener('touchmove', dMove, {passive:false});
+    document.addEventListener('touchend', dEnd);
+  }
+  function dMove(e){
+    e.preventDefault();
+    var t = e.touches ? e.touches[0] : e;
+    var dx = t.clientX - startX, dy = t.clientY - startY;
+    if(Math.abs(dx)>4||Math.abs(dy)>4){ moved=true; dragging=true; wrap.style.transition='none'; }
+    if(dragging){
+      var btnSize = window.innerWidth < 600 ? 52 : 64;
+      var nx = Math.max(0, Math.min(origX+dx, window.innerWidth-btnSize-12));
+      var ny = Math.max(0, Math.min(origY+dy, window.innerHeight-btnSize-12));
+      wrap.style.left = nx+'px'; wrap.style.top = ny+'px';
+      wrap.style.right = 'auto'; wrap.style.bottom = 'auto';
+    }
+  }
+  function dEnd(){
+    document.removeEventListener('mousemove', dMove);
+    document.removeEventListener('mouseup', dEnd);
+    document.removeEventListener('touchmove', dMove);
+    document.removeEventListener('touchend', dEnd);
+    dragging=false; wrap.style.transition='';
+  }
+})();
+</script>
+<!-- END UNIVERSAL BUBBLE -->

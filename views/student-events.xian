@@ -3,7 +3,7 @@
   {{> student-sidebar}}
 
   <!-- Main Content -->
-  <div class="ml-64 px-6 pb-6 pt-20">
+  <div class="md:ml-64 px-6 pb-28 pt-20">
     <!-- Top Bar -->
     <div class="flex items-center justify-between mb-8">
       <div>

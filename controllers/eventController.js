@@ -189,3 +189,17 @@ export const deleteEvent = async (req, res) => {
     res.redirect("/events");
   }
 };
+
+// API: Get active events (upcoming + ongoing) for the face bubble
+export const activeEventsAPI = async (req, res) => {
+  try {
+    const events = await Event.findAll({
+      where: { status: { [Op.in]: ["upcoming", "ongoing"] } },
+      order: [["eventDate", "ASC"]]
+    });
+    res.json({ success: true, events });
+  } catch (err) {
+    console.error("Active events API error:", err);
+    res.status(500).json({ success: false, message: "Failed to load events." });
+  }
+};

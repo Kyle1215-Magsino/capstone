@@ -3,7 +3,7 @@
   {{> student-sidebar}}
 
   <!-- Main Content -->
-  <div class="ml-64 px-6 pb-6 pt-20">
+  <div class="md:ml-64 px-6 pb-28 pt-20">
     <!-- Top Bar -->
     <div class="flex items-center justify-between mb-8">
       <div>
@@ -89,24 +89,29 @@
     var logCount = document.getElementById('logCount');
     logCount.textContent = attendanceRecords.length + ' record(s)';
 
-    attendanceRecords.forEach(function(rec) {
-      var evName = rec.event ? rec.event.eventName : 'Unknown Event';
-      var evDate = rec.event ? rec.event.eventDate : '—';
-      var checkIn = new Date(rec.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      var method = rec.verificationMethod;
-      var methodIcon = method === 'facial' ? 'fa-smile' : method === 'rfid' ? 'fa-wifi' : 'fa-keyboard';
-      var methodColor = method === 'facial' ? 'text-purple-500 bg-purple-50' : method === 'rfid' ? 'text-blue-500 bg-blue-50' : 'text-gray-500 bg-gray-50';
-      var statusColor = rec.status === 'present' ? 'bg-green-100 text-green-700' : rec.status === 'late' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
-      var statusIcon = rec.status === 'present' ? 'fa-check-circle' : rec.status === 'late' ? 'fa-clock' : 'fa-times-circle';
+    if (tbody) {
+      tbody.innerHTML = ""; // Always clear the table body first
+      if (attendanceRecords.length > 0) {
+        attendanceRecords.forEach(function(rec) {
+          var evName = rec.event ? rec.event.eventName : 'Unknown Event';
+          var evDate = rec.event ? rec.event.eventDate : '—';
+          var checkIn = new Date(rec.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          var method = rec.verificationMethod;
+          var methodIcon = method === 'facial' ? 'fa-smile' : method === 'rfid' ? 'fa-wifi' : 'fa-keyboard';
+          var methodColor = method === 'facial' ? 'text-purple-500 bg-purple-50' : method === 'rfid' ? 'text-blue-500 bg-blue-50' : 'text-gray-500 bg-gray-50';
+          var statusColor = rec.status === 'present' ? 'bg-green-100 text-green-700' : rec.status === 'late' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
+          var statusIcon = rec.status === 'present' ? 'fa-check-circle' : rec.status === 'late' ? 'fa-clock' : 'fa-times-circle';
 
-      tbody.innerHTML += '<tr class="hover:bg-gray-50 transition-colors">' +
-        '<td class="px-6 py-3 font-medium text-gray-800">' + evName + '</td>' +
-        '<td class="px-6 py-3 text-gray-500">' + evDate + '</td>' +
-        '<td class="px-6 py-3 text-gray-500">' + checkIn + '</td>' +
-        '<td class="px-6 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' + methodColor + '"><i class="fas ' + methodIcon + ' mr-1"></i>' + method + '</span></td>' +
-        '<td class="px-6 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' + statusColor + '"><i class="fas ' + statusIcon + ' mr-1"></i>' + rec.status + '</span></td>' +
-      '</tr>';
-    });
+          tbody.innerHTML += '<tr class="hover:bg-gray-50 transition-colors">' +
+            '<td class="px-6 py-3 font-medium text-gray-800">' + evName + '</td>' +
+            '<td class="px-6 py-3 text-gray-500">' + evDate + '</td>' +
+            '<td class="px-6 py-3 text-gray-500">' + checkIn + '</td>' +
+            '<td class="px-6 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' + methodColor + '"><i class="fas ' + methodIcon + ' mr-1"></i>' + method + '</span></td>' +
+            '<td class="px-6 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' + statusColor + '"><i class="fas ' + statusIcon + ' mr-1"></i>' + rec.status + '</span></td>' +
+          '</tr>';
+        });
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', function() {
       if (typeof simpleDatatables !== 'undefined') {
